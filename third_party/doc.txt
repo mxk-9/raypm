@@ -1,0 +1,59 @@
+--[Contents]--
+    1. Predefined variables
+    2. Cache
+    3. Package's information output
+    3.1 Supported systems
+    4. Installing packages
+    4.1 Store
+    5. Uninstalling packages
+--------------
+
+--[1. Predefined variables]--
+$src   — package's unpacked sources
+$out   — path to .raypm/store/<package_name>/
+$fetch — folder where store all downloaded files
+$cache — .raypm/cache/<package_name>_<version>
+$pkg   — package's directory
+$dep   — if package has dependencies, it can access to dependency contents. Ex.:
+         For raylib-dll-mingw:
+         $dep/raylib-src
+         $dep/mingw
+-----------------------------
+
+--[2. Cache]--
+$cache/
+    src
+    fetch
+    out ← NOTE
+
+NOTE:
+> if package creates a $out, after installation phase raypm moves $cache/out to $out
+--------------
+
+--[3. Package's information output]--
+If some field is empty, it don't show
+
+The field 'Files' will shows, if package has been installed.
+
+-- 3.1 Supported systems
+Right now only needs for base package.
+If not defined, support all systems
+-------------------------------------
+
+--[4. Installing packages]--
+Installed package locates in .raypm/store/<package_name>
+It automaticly creates this folder
+----------------------------
+
+--[4.1 Store]--
+$out/
+    ... // package contents
+    version.txt
+---------------
+
+--[5. Uninstalling packages]--
+Fetching dependencies and if it's not nil, warn that to user and suggest him to delete dependencies too. After confirmation, deleting entire ./raypm/store/<package_name>(and possibly other packages).
+
+-- 5.1 uninstall_phase
+Additional instructions that execute before deleting package's directory
+------------------------------
