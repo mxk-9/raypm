@@ -9,16 +9,9 @@ import (
 	log "raypm/pkg/slog"
 )
 
-type Downloader struct {
-	Client *http.Client
-}
+func GetFile(link, destPath string) (err error) {
+	downloader := http.DefaultClient
 
-func NewClient() (d *Downloader) {
-	d = &Downloader{Client: &http.Client{}}
-	return
-}
-
-func (d *Downloader) GetFile(link, destPath string) (err error) {
 	if _, err = os.Stat(destPath); err == nil {
 		log.Warn("File '%s' exists, skip downloading\n", destPath)
 		err = nil
@@ -26,7 +19,7 @@ func (d *Downloader) GetFile(link, destPath string) (err error) {
 	}
 
 	var resp *http.Response
-	if resp, err = d.Client.Get(link); err != nil {
+	if resp, err = downloader.Get(link); err != nil {
 		return
 	}
 	defer resp.Body.Close()

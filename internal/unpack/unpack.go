@@ -1,10 +1,5 @@
 package unpack
 
-/* TODO:
- * 1. [X] Check if destination already exists
- * 2. [X] How destiantion's name will calculate
- */
-
 import (
 	"archive/zip"
 	"fmt"
@@ -106,7 +101,7 @@ func extractFile(file fileInArhive, dest []string, selectedItems []string) (err 
 
 	pth := path.Join(dest...)
 
-	for i := 0; i < len(selectedItems) && !itemFound; i++ {
+	for i := 0; selectedItems != nil && i < len(selectedItems) && !itemFound; i++ {
 		item := selectedItems[i]
 
 		if strings.HasPrefix(fileName, item) {
@@ -119,7 +114,7 @@ func extractFile(file fileInArhive, dest []string, selectedItems []string) (err 
 			endOfPath := strings.Split(fileName, "/")[depth:]
 			log.Debug("Second part of path is %v", endOfPath)
 
-			// Maybe it looks like shit
+			// Maybe it looks like a shit
 			pth = path.Join(pth, path.Join(endOfPath...))
 		}
 	}

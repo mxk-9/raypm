@@ -8,9 +8,7 @@ $ go install github.com/mxk-9/raypm@latest
 ```
 
 ## ToDo:
-+ Docs:
-  + [doc.txt](third_party/doc.txt)
-  + [package\_cache.txt](third_party/doc/package_cache.txt)
+- [doc.txt](third_party/doc.txt)
 - All installed packages will store in $PROJECT_ROOT/.raypm/store:
 ```console
 raylib-src
@@ -34,7 +32,7 @@ Then, copy final result to `$out`, full path to .raypm/store/\<package_name\>\_v
 ## Working with GitHub
 ### [ ] raypm -help
 Write custom `help` function
-### [ ] raypm -sync
+### [X] raypm -sync
 Get a fresh package database. It's will download db and unpack to ./raypm/pkgs
 + [ ] We need get access to raypm-pkgs github page and download the latest archive.
 + [ ] Download and unpack pkgs into ./raypm/pkgs

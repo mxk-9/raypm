@@ -111,19 +111,13 @@ func (dn *Node) InstallNode() (err error) {
 	}
 
 	// TODO: Fetch phase
-	var downloadClient *fetch.Downloader
-	if len(dn.Pkg.FetchPhase) != 0 {
-		downloadClient = fetch.NewClient()
-	}
-	
-
 	for _, item := range dn.Pkg.FetchPhase {
 		log.Info("Getting '%s'", item.From)
 		to := ""
 		for _, dest := range item.To {
 			to = path.Join(to, dest)
 		}
-		if err = downloadClient.GetFile(item.From, to); err != nil {
+		if err = fetch.GetFile(item.From, to); err != nil {
 			log.Error("Failed to get '%s'", item.From)
 			return
 		}

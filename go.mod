@@ -5,12 +5,14 @@ go 1.23.5
 require (
 	github.com/bodgit/sevenzip v1.6.0
 	github.com/fatih/color v1.18.0
+	github.com/google/go-github/v69 v69.2.0
 )
 
 require (
 	github.com/andybalholm/brotli v1.1.1 // indirect
 	github.com/bodgit/plumbing v1.3.0 // indirect
 	github.com/bodgit/windows v1.0.1 // indirect
+	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect

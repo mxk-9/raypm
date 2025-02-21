@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"runtime"
 	"raypm/internal/deptree"
+	"raypm/internal/fetch"
 	"raypm/internal/pkginfo"
+	"raypm/internal/unpack"
 	log "raypm/pkg/slog"
+	"runtime"
 
 	"github.com/fatih/color"
 )
@@ -17,13 +19,15 @@ type Operation uint8
 
 const (
 	ListPackages Operation = iota + 1
+	SyncPkgs
 	FetchPkgInfo
 	InstallPkg
+	UninstallPkg
 )
 
 var (
 	Debug           bool
-	ProgramsTask    Operation = 0
+	ProgramTask     Operation = 0
 	PathToPkgs      string    = path.Join("third_party", "raypm", "internals")
 	SelectedPackage string
 	Target          string
@@ -35,10 +39,12 @@ func init() {
 		fetchPkgInfo string
 		installPkg   string
 		removePkg    string
+		syncPkgs     bool
 	)
 
 	flag.BoolVar(&listPkgs, "list", false, "List all available packages")
 	flag.BoolVar(&Debug, "d", false, "Print debug logs")
+	flag.BoolVar(&syncPkgs, "sync", false, "Get latest package's database")
 	flag.StringVar(&fetchPkgInfo, "info", "", "Show information about package")
 	flag.StringVar(&installPkg, "install", "", "Install a package")
 	flag.StringVar(&removePkg, "remove", "", "Remove a package")
@@ -55,13 +61,15 @@ func init() {
 	}
 
 	if listPkgs {
-		ProgramsTask = ListPackages
+		ProgramTask = ListPackages
 	} else if fetchPkgInfo != "" {
-		ProgramsTask = FetchPkgInfo
+		ProgramTask = FetchPkgInfo
 		SelectedPackage = fetchPkgInfo
 	} else if installPkg != "" {
-		ProgramsTask = InstallPkg
+		ProgramTask = InstallPkg
 		SelectedPackage = installPkg
+	} else if syncPkgs {
+		ProgramTask = SyncPkgs
 	}
 
 	if os.Getenv("GOOS") == "" {
@@ -77,7 +85,34 @@ func main() {
 		err error
 	)
 
-	switch ProgramsTask {
+	switch ProgramTask {
+	case SyncPkgs:
+		log.Infoln("Synchronization...")
+		var pathToArchive string
+
+		raypmPkgs := ".raypm"
+		log.Debugln("Creating .raypm directory")
+		if _, err = os.Stat(raypmPkgs); err != nil {
+			if err = os.MkdirAll(raypmPkgs, 0754); err != nil {
+				log.Fatal("Failed to create '%s': %s", raypmPkgs, err)
+			}
+			log.Debugln("Directory created")
+		} else {
+			log.Debugln("Directory already exists")
+		}
+
+		if pathToArchive, err = fetch.Sync(); err != nil {
+			log.Fatalln("Failed to sync:", err)
+		}
+
+		if pathToArchive == "" {
+			log.Infoln("There is nothing to do")
+			os.Exit(0)
+		}
+
+		if err = unpack.Unpack("zip", []string{pathToArchive}, []string{".raypm"}, nil); err != nil {
+			log.Fatalln("Failed to unpack", err)
+		}
 	case InstallPkg:
 		var (
 			lockPath string = path.Join("third_party", "raypm", "lock")
