@@ -37,7 +37,7 @@ Get a fresh package database. It's will download db and unpack to ./raypm/pkgs
 + [ ] We need get access to raypm-pkgs github page and download the latest archive.
 + [ ] Download and unpack pkgs into ./raypm/pkgs
 
-### [ ] raypm -clean [option]
+### [X] raypm -clean [option]
 Available options:
 1. `cache` — deleting .raypm/cache/*
 2. `all` — deleting entire .raypm directory

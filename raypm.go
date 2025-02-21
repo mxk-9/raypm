@@ -18,28 +18,29 @@ import (
 type Operation uint8
 
 const (
-	ListPackages Operation = iota + 1
+	ListPackages Operation = iota
 	SyncPkgs
+	Clean
 	FetchPkgInfo
 	InstallPkg
-	UninstallPkg
+	RemovePkg
 )
 
-var (
-	Debug           bool
-	ProgramTask     Operation = 0
-	PathToPkgs      string    = path.Join("third_party", "raypm", "internals")
-	SelectedPackage string
-	Target          string
-)
-
-func init() {
+func main() {
 	var (
+		ProgramTask     Operation = 0
+		PathToPkgs      string    = path.Join(".raypm", "pkgs")
+		SelectedPackage string
+		Target          string
+		err             error
+
 		listPkgs     bool
+		Debug        bool
+		syncPkgs     bool
 		fetchPkgInfo string
 		installPkg   string
 		removePkg    string
-		syncPkgs     bool
+		cleanStorage string
 	)
 
 	flag.BoolVar(&listPkgs, "list", false, "List all available packages")
@@ -48,6 +49,11 @@ func init() {
 	flag.StringVar(&fetchPkgInfo, "info", "", "Show information about package")
 	flag.StringVar(&installPkg, "install", "", "Install a package")
 	flag.StringVar(&removePkg, "remove", "", "Remove a package")
+	flag.StringVar(&cleanStorage,
+		"clean",
+		"",
+		"Cleaning raypm's storage. Available options: 'cache', 'all'",
+	)
 	flag.Parse()
 
 	log.Init(Debug)
@@ -70,6 +76,11 @@ func init() {
 		SelectedPackage = installPkg
 	} else if syncPkgs {
 		ProgramTask = SyncPkgs
+	} else if removePkg != "" {
+		ProgramTask = RemovePkg
+		SelectedPackage = removePkg
+	} else if cleanStorage != "" {
+		ProgramTask = Clean
 	}
 
 	if os.Getenv("GOOS") == "" {
@@ -78,16 +89,9 @@ func init() {
 		Target = os.Getenv("GOOS")
 	}
 
-}
-
-func main() {
-	var (
-		err error
-	)
-
 	switch ProgramTask {
 	case SyncPkgs:
-		log.Infoln("Synchronization...")
+		log.Infoln("Synchronization")
 		var pathToArchive string
 
 		raypmPkgs := ".raypm"
@@ -110,9 +114,30 @@ func main() {
 			os.Exit(0)
 		}
 
+		log.Infoln("Unpacking sources")
 		if err = unpack.Unpack("zip", []string{pathToArchive}, []string{".raypm"}, nil); err != nil {
 			log.Fatalln("Failed to unpack", err)
 		}
+	case Clean:
+		dirToDel := ".raypm"
+
+		switch cleanStorage {
+		case "all":
+		case "cache":
+			dirToDel = path.Join(dirToDel, "cache")
+		default:
+			log.Fatal("Undefined option '%s', run 'raypm -h' for more info", cleanStorage)
+		}
+
+		if _, err = os.Stat(dirToDel); err == nil {
+			if err = os.RemoveAll(dirToDel); err != nil {
+				log.Error("Failed to remove '%s': %s", dirToDel, err)
+			}
+			log.Info("Deleted directory '%s'", dirToDel)
+		} else {
+			log.Infoln("Directory already deleted")
+		}
+
 	case InstallPkg:
 		var (
 			lockPath string = path.Join("third_party", "raypm", "lock")
