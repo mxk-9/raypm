@@ -13,7 +13,7 @@ import (
 	"github.com/bodgit/sevenzip"
 )
 
-type fileInArhive interface {
+type fileInArchive interface {
 	Open() (io.ReadCloser, error)
 }
 
@@ -86,7 +86,8 @@ func Unpack(archType string, archSrc, dest []string, selectedItems []string) (er
 
 // Main problem, that this function just copy files and not recreating all
 // folders. For ex., file $fetch/bebra/touchme.c will copied as $src/touchme.c
-func extractFile(file fileInArhive, dest []string, selectedItems []string) (err error) {
+// TODO: Dest must be just string
+func extractFile(file fileInArchive, dest []string, selectedItems []string) (err error) {
 	var (
 		fileName   string
 		isDir      bool
@@ -107,11 +108,6 @@ func extractFile(file fileInArhive, dest []string, selectedItems []string) (err 
 
 	// This is because dest can contain just one item
 	pth := strings.Join(dest, "/")
-	recursivePath := strings.Split(pth, "/")
-
-	for i := 0; i < len(recursivePath); i++ {
-
-	}
 
 	for i := 0; checkItems && i < len(selectedItems) && !itemFound; i++ {
 		item := selectedItems[i]
@@ -119,7 +115,7 @@ func extractFile(file fileInArhive, dest []string, selectedItems []string) (err 
 		if strings.HasPrefix(fileName, item) {
 			log.Debug("Found item: '%s'", item)
 			itemFound = true
-			splited := strings.Split(fileName, "/")
+			splited := strings.Split(item, "/")
 			depth := len(splited)
 			log.Debugln("Depth is", depth)
 			if !isDir {
