@@ -8,8 +8,9 @@ $ go install github.com/mxk-9/raypm@latest
 ```
 
 ## ToDo:
+- [ ] **Use raypm as a build system** [can\_i\_use\_raypm\_as\_a\_build\_system.txt](third_party/can_i_use_raypm_as_a_build_system.txt)
 - [doc.txt](third_party/doc.txt)
-- All installed packages will store in $PROJECT_ROOT/.raypm/store:
+- [X] All installed packages will store in $PROJECT_ROOT/.raypm/store:
 ```console
 raylib-src
 raylib-dll-mingw (dependends on raylib-src and mingw)
@@ -20,16 +21,16 @@ base
 android
 ```
 
-- [ ] `package.json`'s will store in $PROJECT_ROOT/.raypm/pkgs
-- [ ] I will have separate repo with pkgs, each release will contain creation date
-- [ ] all downloaded content(include raypm-pkgs) in $PROJECT_ROOT/.raypm/cache
-- `raylib-dll-mingw` will depends on `raylib-src` and `mingw`. It also will stores custom `Makefile`.
+- [X] `package.json`'s will store in $PROJECT_ROOT/.raypm/pkgs
+- [X] I will have separate repo with pkgs, each release will contain creation date
+- [X] all downloaded content(include raypm-pkgs) in $PROJECT_ROOT/.raypm/cache
+- [ ] `raylib-dll-mingw` will depends on `raylib-src` and `mingw`. It also will stores custom `Makefile`.
 - [ ] For `build_phase` `raypm` will create .raypm/cache/build\_\<pkgname\>\_\<hash\>, copy all needed resources and execute all nessesary command to build package.
 Then, copy final result to `$out`, full path to .raypm/store/\<package_name\>\_version.
-- [ ] While running, $PROJECT\_ROOT/.raypm will RW, and in the end — RO
+- [X] While running, $PROJECT\_ROOT/.raypm will RW, and in the end — RO
 
+***
 
-## Working with GitHub
 ### [ ] raypm -help
 Write custom `help` function
 ### [X] raypm -sync
@@ -46,6 +47,7 @@ Available options:
 Installes a package
 + [ ] Searching package in .raypm/pkgs
 + [ ] Copying uninstall phase instructions in ./raypm/store/\<package\_name\>/uninstall.json
++ [ ] With option `-o [path]` it will copy from `$out` to `[path]`
 
 ### [ ] raypm -reinstall [package]
 Calls `uninstall` and then `install`
@@ -87,3 +89,15 @@ Files:
     .raypm/store/pkg_name/file2.txt
     .raypm/store/pkg_name/dir/file3.conf
 ```
+
+### [ ] raypm -run [package]
+If a package contains executable, launch it
+
+> package.json
+```json
+{
+    "executable" : "bin/rltest"
+}
+```
+
+It will automaticly expand `bin/rltest` to `$out/bin/rltest`

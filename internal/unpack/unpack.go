@@ -6,8 +6,8 @@ import (
 	"io"
 	"os"
 	"path"
-	"reflect"
 	log "raypm/pkg/slog"
+	"reflect"
 	"strings"
 
 	"github.com/bodgit/sevenzip"
@@ -39,8 +39,8 @@ var (
 
 func Unpack(archType string, archSrc, dest []string, selectedItems []string) (err error) {
 	var (
-		r        archive
-		arch     string = path.Join(archSrc...)
+		r    archive
+		arch string = path.Join(archSrc...)
 	)
 
 	switch archType {
@@ -49,12 +49,13 @@ func Unpack(archType string, archSrc, dest []string, selectedItems []string) (er
 	case "zip":
 		r, err = zip.OpenReader(arch)
 	default:
-		err = fmt.Errorf("Type '%s' is not supported yet.\n", archType)
+		log.Error("Type '%s' is not supported yet.\n", archType)
+		err = fmt.Errorf("ArchiveFormatIsNotSupported")
 		return
 	}
 
 	if err != nil {
-		err = fmt.Errorf("Failed to open archive '%s': %s\n", arch, err)
+		log.Error("Failed to open archive '%s': %s\n", arch, err)
 		return
 	}
 	defer r.Close()
@@ -77,17 +78,20 @@ func Unpack(archType string, archSrc, dest []string, selectedItems []string) (er
 			}
 		}
 	default:
-		err = fmt.Errorf("Something goes wrong: %v\n", reflect.TypeOf(r))
+		log.Error("Something goes wrong: %v\n", reflect.TypeOf(r))
 	}
 
 	return err
 }
 
+// Main problem, that this function just copy files and not recreating all
+// folders. For ex., file $fetch/bebra/touchme.c will copied as $src/touchme.c
 func extractFile(file fileInArhive, dest []string, selectedItems []string) (err error) {
 	var (
-		fileName  string
-		isDir     bool
-		itemFound bool = false
+		fileName   string
+		isDir      bool
+		itemFound  bool = false
+		checkItems bool = selectedItems != nil || len(selectedItems) > 0
 	)
 
 	switch reflect.TypeOf(file) {
@@ -99,53 +103,55 @@ func extractFile(file fileInArhive, dest []string, selectedItems []string) (err 
 		isDir = file.(*sevenzip.File).FileInfo().IsDir()
 	}
 
-	pth := path.Join(dest...)
+	log.Debug("Fname: %s; isDir: %t", fileName, isDir)
 
-	for i := 0; selectedItems != nil && i < len(selectedItems) && !itemFound; i++ {
+	// This is because dest can contain just one item
+	pth := strings.Join(dest, "/")
+	recursivePath := strings.Split(pth, "/")
+
+	for i := 0; i < len(recursivePath); i++ {
+
+	}
+
+	for i := 0; checkItems && i < len(selectedItems) && !itemFound; i++ {
 		item := selectedItems[i]
 
 		if strings.HasPrefix(fileName, item) {
 			log.Debug("Found item: '%s'", item)
 			itemFound = true
-			depth := len(selectedItems) - 1
+			splited := strings.Split(fileName, "/")
+			depth := len(splited)
+			log.Debugln("Depth is", depth)
 			if !isDir {
 				depth--
 			}
-			endOfPath := strings.Split(fileName, "/")[depth:]
+			endOfPath := splited[depth:]
 			log.Debug("Second part of path is %v", endOfPath)
 
 			// Maybe it looks like a shit
+			log.Debug("Full %s %v", pth, endOfPath)
 			pth = path.Join(pth, path.Join(endOfPath...))
 		}
 	}
 
-	if selectedItems == nil {
+	if !checkItems {
 		endOfPath := strings.Split(fileName, "/")
 		pth = path.Join(pth, path.Join(endOfPath...))
 	}
 
 	log.Debug("Final path is '%s'", pth)
 
-	if selectedItems != nil && !itemFound {
-		log.Debug("Skipping '%s', because it doesn't match with:\n'%#v'", fileName, selectedItems)
+	if checkItems && !itemFound {
+		log.Debug("Skipping '%s', because it doesn't match with: '%#v'", fileName, selectedItems)
 		return
 	}
 
 	if _, err = os.Stat(pth); err == nil {
-		err = fmt.Errorf(
+		log.Warn(
 			"File '%s' already exists, seems archive is already unpacked", pth,
 		)
 		return
 	}
-
-	rc, err := file.Open()
-
-	if err != nil {
-		return
-	}
-	defer rc.Close()
-
-	log.Debug("Opened '%s'", fileName)
 
 	if isDir {
 		log.Debugln("Item is a directory")
@@ -154,6 +160,15 @@ func extractFile(file fileInArhive, dest []string, selectedItems []string) (err 
 		}
 		log.Debugln(pth, "created")
 	} else {
+		rc, lerr := file.Open()
+
+		if lerr != nil {
+			err = lerr
+			return
+		}
+		defer rc.Close()
+		log.Debug("Opened '%s'", fileName)
+
 		log.Debugln("Item is a file")
 		baseDest := path.Dir(pth)
 

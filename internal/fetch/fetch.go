@@ -3,6 +3,7 @@ package fetch
 import (
 	"fmt"
 	"io"
+	"raypm/pkg/progress"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -24,7 +25,7 @@ func GetFile(link, destPath string) (err error) {
 	}
 	defer resp.Body.Close()
 
-	src := &PassThru{Reader: resp.Body}
+	src := &progress.PassThru{Reader: resp.Body}
 
 	currDir := filepath.Dir(destPath)
 
@@ -32,6 +33,7 @@ func GetFile(link, destPath string) (err error) {
 		err = os.MkdirAll(currDir, 0754)
 		if err != nil {
 			err = fmt.Errorf("Failed to create a folder:\n%s\n", err)
+			log.Errorln(err)
 			return
 		}
 	}

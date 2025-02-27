@@ -1,6 +1,7 @@
 package fetch
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"os"
@@ -23,10 +24,13 @@ type ReleaseInfo struct {
 
 type Releases []ReleaseInfo
 
-
 // It can returns an empty string, that means, package's database is already
 // exists
-func Sync() (pathToArchive string, err error) {
+func Sync() (pathToArchive, version string, err error) {
+	var (
+		fInfo     *os.File
+		fInfoPath string = path.Join(".raypm", "pkgs", "info.txt")
+	)
 	client := github.NewClient(nil)
 
 	log.Debugln("Creating a request")
@@ -54,7 +58,8 @@ func Sync() (pathToArchive string, err error) {
 	latestLink := (*rel)[0].Assets[0].DownloadUrl
 	latestTagName := (*rel)[0].TagName
 
-	log.Debug("Latest version: %s\nLink: %s", latestTagName, latestLink)
+	log.Debugln("Latest version:", latestTagName)
+	log.Debugln("Link:", latestLink)
 	log.Debugln("Creating cache directory")
 	cache := path.Join(".raypm", "cache")
 
@@ -67,16 +72,43 @@ func Sync() (pathToArchive string, err error) {
 		log.Debugln("Directory already created")
 	}
 
-	pathToArchive = path.Join(cache, latestTagName + ".zip")
+	log.Debugln("Checking installed version")
+	if _, err = os.Stat(fInfoPath); err == nil {
+		if fInfo, err = os.Open(fInfoPath); err != nil {
+			log.Error("Failed to open '%s': %s", fInfoPath, err)
+			return
+		}
+		defer fInfo.Close()
 
-	if _, err = os.Stat(pathToArchive); err == nil {
-		log.Infoln("Packages database is up to date")
-		pathToArchive = ""
-		return
+		buf := bufio.NewScanner(fInfo)
+
+		buf.Scan()
+		ver := buf.Text()
+		if ver != latestTagName {
+			log.Warn(
+				"Current pkgs version is '%s', new: '%s', removing old",
+				ver, latestTagName,
+			)
+
+			pkgsPath := path.Join(".raypm", "pkgs")
+			if err = os.RemoveAll(pkgsPath); err != nil {
+				log.Error("Failed to remove '%s': %s", pkgsPath, err)
+				return
+			}
+			log.Info("'pkgs' removed")
+		} else {
+			log.Warn("Latest package database is already installed")
+			return
+		}
+
+	} else {
+		log.Debugln("Don't find")
 	}
+
+	pathToArchive = path.Join(cache, latestTagName+".zip")
+	version = latestTagName
 
 	err = GetFile(latestLink, pathToArchive)
 
 	return
 }
-

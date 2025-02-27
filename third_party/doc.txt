@@ -11,7 +11,7 @@
 --------------
 
 --[1. Predefined variables]--
-q$src   — package's unpacked sources
+$src   — package's unpacked sources
 $out   — path to .raypm/store/<package_name>/
 $fetch — folder where store all downloaded files
 $cache — .raypm/cache/<package_name>_<version>

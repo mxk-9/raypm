@@ -20,24 +20,14 @@ type UnpackTask struct {
 	SelectedItems []string `json:"selected_items"` // Full path to needed object, extacting recursively
 }
 
-type TaskType string
-
 type CommandTask struct {
-	Command  TaskType `json:"command"`
+	Command  string `json:"command"`
 	ExecBase []string `json:"exec_base"`
 	Args     []string `json:"args"`
 	From     []string `json:"from"`
 	To       []string `json:"to"`
 	Path     []string `json:"path"`
 }
-
-const (
-	Exec               TaskType = "exec"
-	Mkdir              TaskType = "mkdir"
-	Copy               TaskType = "copy"
-	Remove             TaskType = "rm"
-	CallPackageManager TaskType = "pkgman"
-)
 
 type Package struct {
 	Name            string   `json:"name"`
@@ -121,6 +111,9 @@ func (internal *Package) Info() (data string) {
 	data += fmt.Sprintln("Unpacking:")
 	phasesInfo(&data, internal.UnpackPhase)
 
+	data += fmt.Sprintln("Building:")
+	phasesInfo(&data, internal.BuildPhase)
+
 	data += fmt.Sprintln("Installation:")
 	phasesInfo(&data, internal.InstallPhase)
 
@@ -136,6 +129,11 @@ func (internal *Package) concatPkgPhases(phases *Package) {
 	if len(phases.UnpackPhase) > 0 {
 		log.Debugln("Unpack phase found")
 		internal.UnpackPhase = append(internal.UnpackPhase, phases.UnpackPhase...)
+	}
+
+	if len(phases.BuildPhase) > 0 {
+		log.Debugln("Build phase found")
+		internal.BuildPhase = append(internal.BuildPhase, phases.BuildPhase...)
 	}
 
 	if len(phases.InstallPhase) > 0 {

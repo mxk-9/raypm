@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io/fs"
 	"os"
 	"path"
 	"raypm/internal/deptree"
@@ -30,9 +31,11 @@ func main() {
 	var (
 		ProgramTask     Operation = 0
 		PathToPkgs      string    = path.Join(".raypm", "pkgs")
+		lockPath        string    = path.Join(".raypm", "lock")
 		SelectedPackage string
 		Target          string
-		err             error
+
+		err error
 
 		listPkgs     bool
 		Debug        bool
@@ -91,34 +94,61 @@ func main() {
 
 	switch ProgramTask {
 	case SyncPkgs:
+		enableRaypmAccess(true)
+		defer enableRaypmAccess(false)
+
 		log.Infoln("Synchronization")
-		var pathToArchive string
+		var (
+			pathToArchive string
+			version       string
+		)
 
 		raypmPkgs := ".raypm"
 		log.Debugln("Creating .raypm directory")
 		if _, err = os.Stat(raypmPkgs); err != nil {
 			if err = os.MkdirAll(raypmPkgs, 0754); err != nil {
-				log.Fatal("Failed to create '%s': %s", raypmPkgs, err)
+				log.Error("Failed to create '%s': %s", raypmPkgs, err)
+				return
 			}
 			log.Debugln("Directory created")
 		} else {
 			log.Debugln("Directory already exists")
 		}
 
-		if pathToArchive, err = fetch.Sync(); err != nil {
-			log.Fatalln("Failed to sync:", err)
+		if pathToArchive, version, err = fetch.Sync(); err != nil {
+			log.Errorln("Failed to sync:", err)
+			return
 		}
 
 		if pathToArchive == "" {
 			log.Infoln("There is nothing to do")
-			os.Exit(0)
+			return
 		}
 
 		log.Infoln("Unpacking sources")
 		if err = unpack.Unpack("zip", []string{pathToArchive}, []string{".raypm"}, nil); err != nil {
-			log.Fatalln("Failed to unpack", err)
+			log.Errorln("Failed to unpack", err)
+			return
 		}
+
+		fInfoPath := path.Join(".raypm", "pkgs", "info.txt")
+		fInfo, err := os.Create(fInfoPath)
+		if err != nil {
+			log.Error("Failed to create info file '%s': '%s'", fInfoPath, err)
+			return
+		}
+		defer fInfo.Close()
+
+		if _, err = fInfo.WriteString(version); err != nil {
+			log.Errorln("Failed to write a date:", err)
+			return
+		}
+
+		log.Infoln("Package's database is up to date now")
 	case Clean:
+		enableRaypmAccess(true)
+		defer enableRaypmAccess(false)
+
 		dirToDel := ".raypm"
 
 		switch cleanStorage {
@@ -126,12 +156,15 @@ func main() {
 		case "cache":
 			dirToDel = path.Join(dirToDel, "cache")
 		default:
-			log.Fatal("Undefined option '%s', run 'raypm -h' for more info", cleanStorage)
+			log.Error("Undefined option '%s', run 'raypm -h' for more info",
+				cleanStorage)
+			return
 		}
 
 		if _, err = os.Stat(dirToDel); err == nil {
 			if err = os.RemoveAll(dirToDel); err != nil {
 				log.Error("Failed to remove '%s': %s", dirToDel, err)
+				return
 			}
 			log.Info("Deleted directory '%s'", dirToDel)
 		} else {
@@ -139,8 +172,10 @@ func main() {
 		}
 
 	case InstallPkg:
+		enableRaypmAccess(true)
+		defer enableRaypmAccess(false)
+
 		var (
-			lockPath string = path.Join("third_party", "raypm", "lock")
 			fileLock *os.File
 			deps     *deptree.Tree
 		)
@@ -148,10 +183,12 @@ func main() {
 		log.Info("Target:%s", Target)
 
 		if _, err = os.Stat(lockPath); err == nil {
-			log.Fatal("Another process is using '%s', exiting...", lockPath)
+			log.Error("Another process is using '%s', exiting", lockPath)
+			return
 		} else {
 			if fileLock, err = os.Create(lockPath); err != nil {
-				log.Fatal("Cannot create lock file: %s\n", err)
+				log.Error("Cannot create lock file: %s\n", err)
+				return
 			}
 			log.Debugln("Created lock file")
 			fileLock.Chmod(0000)
@@ -161,12 +198,14 @@ func main() {
 		}
 		defer func() {
 			if err = os.Chmod(lockPath, 0754); err != nil {
-				log.Fatal("Cannot change mod for lock file:%s\n", err)
+				log.Error("Cannot change mod for lock file:%s\n", err)
+				return
 			}
 			log.Debugln("Changed mod to 0754. Deleting file...")
 
 			if err = os.Remove(lockPath); err != nil {
-				log.Fatal("Cannot delete file:%s\n", err)
+				log.Error("Cannot delete file:%s\n", err)
+				return
 			}
 
 			log.Debugln("Deleted lock file")
@@ -174,9 +213,11 @@ func main() {
 
 		if deps, err = deptree.NewDepTree(PathToPkgs, SelectedPackage, Target); err != nil {
 			log.Error("Failed to resolve dependencies:\n%s\n", err)
+			return
 		} else {
 			deps.Install()
 		}
+
 	case ListPackages:
 		var (
 			dirs []os.DirEntry
@@ -184,7 +225,8 @@ func main() {
 
 		log.Debug("Going to %s\n", PathToPkgs)
 		if err = os.Chdir(PathToPkgs); err != nil {
-			log.Fatal("Failed to open '%s':\n%s\n", PathToPkgs, err)
+			log.Error("Failed to open '%s':\n%s\n", PathToPkgs, err)
+			return
 		}
 
 		defer func() {
@@ -193,7 +235,8 @@ func main() {
 		}()
 
 		if dirs, err = os.ReadDir("."); err != nil {
-			log.Fatal("Failed to read '%s':\n%s\n", PathToPkgs, err)
+			log.Error("Failed to read '%s':\n%s\n", PathToPkgs, err)
+			return
 		}
 
 		log.Debug("Readed:\n%v\n", dirs)
@@ -203,11 +246,20 @@ func main() {
 				currentPackage, err := pkginfo.NewPackageItem(item.Name(), Target)
 
 				if err != nil {
-					log.Fatalln(err)
+					log.Errorln(err)
+					return
 				}
 
-				color.Magenta(currentPackage.Name)
-				fmt.Print("\t", currentPackage.Description, "\n")
+				printLine := color.MagentaString(currentPackage.Name)
+
+				pth := path.Join(".raypm", "store", currentPackage.Name)
+				pth = os.Getenv("PWD") + string(os.PathSeparator) + pth
+				
+				if _, err = os.Stat(pth); err == nil {
+					printLine += color.GreenString("\t[Installed]")
+				}
+				err = nil
+				fmt.Print(printLine, "\n\t", currentPackage.Description, "\n")
 			}
 		}
 	case FetchPkgInfo:
@@ -216,7 +268,8 @@ func main() {
 		log.Info("Target:%s", Target)
 
 		if err = os.Chdir(path.Join(PathToPkgs, SelectedPackage)); err != nil {
-			log.Fatal("Package '%s' does not exists", SelectedPackage)
+			log.Error("Package '%s' does not exists", SelectedPackage)
+			return
 		}
 
 		defer func() {
@@ -224,10 +277,39 @@ func main() {
 		}()
 
 		if currentPackage, err = pkginfo.NewPackageItem(".", Target); err != nil {
-			log.Fatalln(err)
+			log.Errorln(err)
 		}
 
 		fmt.Println("Package Information:")
 		fmt.Println(currentPackage.Info())
 	}
+}
+
+func enableRaypmAccess(enable bool) {
+	var bits fs.FileMode = 0555
+
+	if enable {
+		bits = 0754
+	}
+
+	log.Debugln("Chaging to", bits)
+
+	recRaypmAccess(".raypm", bits)
+	return
+}
+
+func recRaypmAccess(item string, bits fs.FileMode) {
+	os.Chmod(item, bits)
+
+	if item == "cache" {
+		return
+	}
+
+	dirs, _ := os.ReadDir(item)
+
+	for _, entry := range dirs {
+		recRaypmAccess(path.Join(item, entry.Name()), bits)
+	}
+
+	return
 }

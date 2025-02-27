@@ -2,10 +2,15 @@ package deptree
 
 import (
 	"fmt"
+	"os"
 	"path"
 	"raypm/internal/fetch"
 	"raypm/internal/pkginfo"
+	"raypm/internal/task"
+	"raypm/internal/unpack"
+	"raypm/internal/vars"
 	log "raypm/pkg/slog"
+	"strings"
 )
 
 type PkgData struct {
@@ -17,6 +22,8 @@ type Node struct {
 	Data    *PkgData
 	Pkg     *pkginfo.Package
 	Depends []*Node // If len(Depends) is 0, we reach the end
+	// Predefined variables
+	Vars *vars.Vars
 }
 
 type Tree struct {
@@ -47,7 +54,16 @@ func NewNode(data *PkgData, internalName string) (depNode *Node, err error) {
 	// Creates simple dependency node
 	depNode = &Node{
 		Data: data,
+		Vars: &vars.Vars{},
 	}
+
+	depNode.Vars.Cache = path.Join(".raypm", "cache", internalName)
+	depNode.Vars.Src = path.Join(depNode.Vars.Cache, "src")
+	depNode.Vars.Fetch = path.Join(depNode.Vars.Cache, "fetch")
+	depNode.Vars.Out = path.Join(".raypm", "store", internalName)
+	depNode.Vars.Package = path.Join(".raypm", "pkgs", internalName)
+
+	log.Debug("Vars:\n%v", depNode.Vars)
 
 	internal := &pkginfo.Package{}
 
@@ -63,6 +79,7 @@ func NewNode(data *PkgData, internalName string) (depNode *Node, err error) {
 		if err = depNode.Append(depNode.Data, item); err != nil {
 			return
 		}
+		depNode.Vars.Dep = append(depNode.Vars.Dep, item)
 	}
 	log.Debug("Success fetching dependencies for package '%s'", internalName)
 
@@ -71,8 +88,9 @@ func NewNode(data *PkgData, internalName string) (depNode *Node, err error) {
 	return
 }
 
+// Expand dependency nodes array
 func (dn *Node) Append(data *PkgData, internalName string) (err error) {
-	// Expand dependency nodes array
+
 	localNode := &Node{}
 
 	log.Debug("Creating node '%s'", internalName)
@@ -102,19 +120,33 @@ func (dn *Node) ShowNode() {
 
 func (dn *Node) InstallNode() (err error) {
 	if dn.Pkg == nil {
-		err = fmt.Errorf("Empty node")
 		return
 	}
 
-	for _, item:= range dn.Depends {
-		item.InstallNode()
+	for _, item := range dn.Depends {
+		if err = item.InstallNode(); err != nil {
+			return
+		}
+	}
+
+	log.Infoln("Installing", dn.Pkg.Name)
+	pkgsPath := path.Join(".raypm", "store", dn.Pkg.Name)
+	if _, err = os.Stat(pkgsPath); err == nil {
+		log.Info("Package '%s' already installed", pkgsPath)
+		return
+	} else {
+		err = nil
 	}
 
 	// TODO: Fetch phase
+	log.Infoln("Fetch phase")
 	for _, item := range dn.Pkg.FetchPhase {
 		log.Info("Getting '%s'", item.From)
 		to := ""
-		for _, dest := range item.To {
+
+		expanded := dn.Vars.ExpandVars(&item.To)
+
+		for _, dest := range expanded {
 			to = path.Join(to, dest)
 		}
 		if err = fetch.GetFile(item.From, to); err != nil {
@@ -122,11 +154,59 @@ func (dn *Node) InstallNode() (err error) {
 			return
 		}
 	}
-	
+
 	// TODO: Unpack phase
-	
-	// TODO: Install phase
-	// OPTIONAL: Uninstall phase
+	log.Infoln("Unpack phase")
+	for _, item := range dn.Pkg.UnpackPhase {
+		from := dn.Vars.ExpandVars(&item.Src)
+		log.Debug("Expanded from '%v'\nto '%v'", item.Src, from)
+
+		log.Info("Unpacking '%s'", strings.Join(from, "/"))
+
+		to := dn.Vars.ExpandVars(&item.Dest)
+		log.Debug("Expanded from '%v'\nto '%v'", item.Dest, to)
+
+		if err = unpack.Unpack(item.Type, from, to, item.SelectedItems); err != nil {
+			return
+		}
+	}
+
+	// TODO: Build
+	log.Infoln("Build phase")
+	for _, item := range dn.Pkg.BuildPhase {
+		if err = task.Do("build", item, dn.Vars); err != nil {
+			log.Errorln("Build phase failed")
+			return
+		}
+	}
+
+	// TODO: Install
+	log.Infoln("Install phase")
+	outDir := dn.Vars.Out
+	if _, err = os.Stat(outDir); err == nil {
+		log.Error("Directory '%s' already exists!", outDir)
+		err = fmt.Errorf("DirectoryAlreadyExists")
+		return
+	}
+
+	if err = os.MkdirAll(outDir, 0754); err != nil {
+		log.Error("Failed to create directory '%s': %s", outDir, err)
+		return
+	}
+
+	for _, item := range dn.Pkg.InstallPhase {
+		if err = task.Do("install", item, dn.Vars); err != nil {
+			log.Errorln("Install phase failed")
+			return
+		}
+	}
+
+	log.Info("Package '%s' installed", dn.Pkg.Name)
+	return
+}
+
+// TODO: UninstallNode
+func (dn *Node) UninstallNode(withDeps bool) (err error) {
 	return
 }
 
@@ -138,9 +218,9 @@ func (dp *Tree) ShowTree() {
 }
 
 func (dp *Tree) Install() (err error) {
-	// Going through all dependencies packages until len(Depends) == 0 then
-	// recursively install everything.
-	// For each phase we have one package
-
+	if err = dp.Nodes.InstallNode(); err != nil {
+		log.Error("Package installation failed")
+		return
+	}
 	return
 }
