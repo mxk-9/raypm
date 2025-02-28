@@ -126,7 +126,7 @@ func main() {
 		}
 
 		log.Infoln("Unpacking sources")
-		if err = unpack.Unpack("zip", []string{pathToArchive}, []string{".raypm"}, nil); err != nil {
+		if err = unpack.Unpack("zip", pathToArchive, ".raypm", nil); err != nil {
 			log.Errorln("Failed to unpack", err)
 			return
 		}

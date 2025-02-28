@@ -37,17 +37,16 @@ var (
 	sevenzipType = reflect.TypeOf(for7z)
 )
 
-func Unpack(archType string, archSrc, dest []string, selectedItems []string) (err error) {
+func Unpack(archType, archSrc, dest string, selectedItems []string) (err error) {
 	var (
-		r    archive
-		arch string = path.Join(archSrc...)
+		r archive
 	)
 
 	switch archType {
 	case "7z":
-		r, err = sevenzip.OpenReader(arch)
+		r, err = sevenzip.OpenReader(archSrc)
 	case "zip":
-		r, err = zip.OpenReader(arch)
+		r, err = zip.OpenReader(archSrc)
 	default:
 		log.Error("Type '%s' is not supported yet.\n", archType)
 		err = fmt.Errorf("ArchiveFormatIsNotSupported")
@@ -55,7 +54,7 @@ func Unpack(archType string, archSrc, dest []string, selectedItems []string) (er
 	}
 
 	if err != nil {
-		log.Error("Failed to open archive '%s': %s\n", arch, err)
+		log.Error("Failed to open archive '%s': %s\n", archSrc, err)
 		return
 	}
 	defer r.Close()
@@ -87,7 +86,7 @@ func Unpack(archType string, archSrc, dest []string, selectedItems []string) (er
 // Main problem, that this function just copy files and not recreating all
 // folders. For ex., file $fetch/bebra/touchme.c will copied as $src/touchme.c
 // TODO: Dest must be just string
-func extractFile(file fileInArchive, dest []string, selectedItems []string) (err error) {
+func extractFile(file fileInArchive, destDir string, selectedItems []string) (err error) {
 	var (
 		fileName   string
 		isDir      bool
@@ -106,8 +105,7 @@ func extractFile(file fileInArchive, dest []string, selectedItems []string) (err
 
 	log.Debug("Fname: %s; isDir: %t", fileName, isDir)
 
-	// This is because dest can contain just one item
-	pth := strings.Join(dest, "/")
+	destPath := destDir
 
 	for i := 0; checkItems && i < len(selectedItems) && !itemFound; i++ {
 		item := selectedItems[i]
@@ -117,44 +115,42 @@ func extractFile(file fileInArchive, dest []string, selectedItems []string) (err
 			itemFound = true
 			splited := strings.Split(item, "/")
 			depth := len(splited)
-			log.Debugln("Depth is", depth)
-			if !isDir {
-				depth--
-			}
-			endOfPath := splited[depth:]
+			depth--
+			log.Debug("Depth is %d", depth)
+			endOfPath := (strings.Split(fileName, "/"))[depth:]
 			log.Debug("Second part of path is %v", endOfPath)
 
 			// Maybe it looks like a shit
-			log.Debug("Full %s %v", pth, endOfPath)
-			pth = path.Join(pth, path.Join(endOfPath...))
+			log.Debug("Full %s %v", destPath, endOfPath)
+			destPath = path.Join(destPath, path.Join(endOfPath...))
 		}
 	}
 
 	if !checkItems {
 		endOfPath := strings.Split(fileName, "/")
-		pth = path.Join(pth, path.Join(endOfPath...))
+		destPath = path.Join(destPath, path.Join(endOfPath...))
 	}
 
-	log.Debug("Final path is '%s'", pth)
+	log.Debug("Final path is '%s'", destPath)
 
 	if checkItems && !itemFound {
 		log.Debug("Skipping '%s', because it doesn't match with: '%#v'", fileName, selectedItems)
 		return
 	}
 
-	if _, err = os.Stat(pth); err == nil {
+	if _, err = os.Stat(destPath); err == nil {
 		log.Warn(
-			"File '%s' already exists, seems archive is already unpacked", pth,
+			"File '%s' already exists, seems archive is already unpacked", destPath,
 		)
 		return
 	}
 
 	if isDir {
 		log.Debugln("Item is a directory")
-		if err = os.MkdirAll(pth, 0754); err != nil {
+		if err = os.MkdirAll(destPath, 0754); err != nil {
 			return
 		}
-		log.Debugln(pth, "created")
+		log.Debugln(destPath, "created")
 	} else {
 		rc, lerr := file.Open()
 
@@ -166,7 +162,7 @@ func extractFile(file fileInArchive, dest []string, selectedItems []string) (err
 		log.Debug("Opened '%s'", fileName)
 
 		log.Debugln("Item is a file")
-		baseDest := path.Dir(pth)
+		baseDest := path.Dir(destPath)
 
 		if _, err = os.Stat(baseDest); err != nil {
 			if err = os.MkdirAll(baseDest, 0754); err != nil {
@@ -174,13 +170,13 @@ func extractFile(file fileInArchive, dest []string, selectedItems []string) (err
 			}
 		}
 
-		dstFile, err := os.Create(pth)
+		dstFile, err := os.Create(destPath)
 		if err != nil {
 			return err
 		}
 		defer dstFile.Close()
 
-		log.Debugln("File", pth, "created")
+		log.Debugln("File", destPath, "created")
 
 		if _, err = io.Copy(dstFile, rc); err != nil {
 			return err

@@ -10,7 +10,6 @@ import (
 	"raypm/internal/unpack"
 	"raypm/internal/vars"
 	log "raypm/pkg/slog"
-	"strings"
 )
 
 type PkgData struct {
@@ -158,12 +157,12 @@ func (dn *Node) InstallNode() (err error) {
 	// TODO: Unpack phase
 	log.Infoln("Unpack phase")
 	for _, item := range dn.Pkg.UnpackPhase {
-		from := dn.Vars.ExpandVars(&item.Src)
+		from := path.Join(dn.Vars.ExpandVars(&item.Src)...)
 		log.Debug("Expanded from '%v'\nto '%v'", item.Src, from)
 
-		log.Info("Unpacking '%s'", strings.Join(from, "/"))
+		log.Info("Unpacking '%s'", from)
 
-		to := dn.Vars.ExpandVars(&item.Dest)
+		to := path.Join(dn.Vars.ExpandVars(&item.Dest)...)
 		log.Debug("Expanded from '%v'\nto '%v'", item.Dest, to)
 
 		if err = unpack.Unpack(item.Type, from, to, item.SelectedItems); err != nil {
