@@ -137,8 +137,6 @@ func (dn *Node) InstallNode() (err error) {
 		err = nil
 	}
 
-	// TODO: Fetch phase
-	log.Infoln("Fetch phase")
 	for _, item := range dn.Pkg.FetchPhase {
 		log.Info("Getting '%s'", item.From)
 		to := ""
@@ -154,8 +152,6 @@ func (dn *Node) InstallNode() (err error) {
 		}
 	}
 
-	// TODO: Unpack phase
-	log.Infoln("Unpack phase")
 	for _, item := range dn.Pkg.UnpackPhase {
 		from := path.Join(dn.Vars.ExpandVars(&item.Src)...)
 		log.Debug("Expanded from '%v'\nto '%v'", item.Src, from)
@@ -170,8 +166,6 @@ func (dn *Node) InstallNode() (err error) {
 		}
 	}
 
-	// TODO: Build
-	log.Infoln("Build phase")
 	for _, item := range dn.Pkg.BuildPhase {
 		if err = task.Do("build", item, dn.Vars); err != nil {
 			log.Errorln("Build phase failed")
@@ -179,8 +173,6 @@ func (dn *Node) InstallNode() (err error) {
 		}
 	}
 
-	// TODO: Install
-	log.Infoln("Install phase")
 	outDir := dn.Vars.Out
 	if _, err = os.Stat(outDir); err == nil {
 		log.Error("Directory '%s' already exists!", outDir)

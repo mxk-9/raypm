@@ -10,7 +10,7 @@ import (
 
 var (
 	debugFlag   bool   = false
-	debugPrefix string = "[DEBUG]"
+	debugPrefix string = color.WhiteString("[DEBUG]")
 	infoPrefix  string = color.HiBlueString("[INFO]")
 	warnPrefix  string = color.YellowString("[WARN]")
 	errorPrefix string = color.RedString("[ERROR]")

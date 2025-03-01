@@ -103,7 +103,9 @@ func phasesInfo(data *string, phase ...any) {
 func (internal *Package) Info() (data string) {
 	data = fmt.Sprintf("Name: %s\n", internal.Name)
 	data += fmt.Sprintf("Description: %s\n", internal.Description)
-	data += fmt.Sprintf("Depends on: %v\n", internal.Dependendencies)
+	if internal.Dependendencies != nil && len(internal.Dependendencies) > 0 {
+		data += fmt.Sprintf("Depends on: %v\n", internal.Dependendencies)
+	}
 
 	data += fmt.Sprintln("Fetching:")
 	phasesInfo(&data, internal.FetchPhase)

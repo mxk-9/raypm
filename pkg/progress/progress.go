@@ -14,10 +14,25 @@ const (
 
 const SI float32 = 1000
 
+const ClearLine = "\033[2K"
+
 type PassThru struct {
 	io.Reader
 	Total int
 	All   int
+}
+
+// Add settings for copying output:
+// Enable/Disable showing progress
+// Count filesize
+// Print file name
+func NewProgress() (pt *PassThru) {
+
+	return
+}
+
+func (pt *PassThru) SetText() {
+
 }
 
 func (pt *PassThru) Read(p []byte) (int, error) {
@@ -28,12 +43,13 @@ func (pt *PassThru) Read(p []byte) (int, error) {
 
 		total, measure := getFormattedData(pt.Total)
 
-		for i := 0; i < 30; i++ {
+		for range 30 {
 			fmt.Printf(" ")
 		}
 
-		fmt.Print("\r\033[1A\033[K")
-		fmt.Printf("Downloading: %2.2f %s\n", total, measure)
+		fmt.Printf(ClearLine)
+		fmt.Printf("\r")
+		fmt.Printf("Downloading: %2.2f %s", total, measure)
 	}
 
 	return n, err

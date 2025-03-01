@@ -1,6 +1,6 @@
-# RAYPM - package manager for my projects with Go & Raylib
+# RAYPM - package manager for projects on Raylib
 Это простой пакетный менеджер, позволяющий установить необходимые зависимости для создания игр на движке Raylib и портирования этих игр на другие платформы.
-
+Simple package manager, allows you to install needed dependencies, like raylib.dll for Windows
 
 ## Installation
 ```console
@@ -21,33 +21,24 @@ base
 android
 ```
 
-- [X] `package.json`'s will store in $PROJECT_ROOT/.raypm/pkgs
-- [X] I will have separate repo with pkgs, each release will contain creation date
-- [X] all downloaded content(include raypm-pkgs) in $PROJECT_ROOT/.raypm/cache
-- [ ] `raylib-dll-mingw` will depends on `raylib-src` and `mingw`. It also will stores custom `Makefile`.
-- [ ] For `build_phase` `raypm` will create .raypm/cache/build\_\<pkgname\>\_\<hash\>, copy all needed resources and execute all nessesary command to build package.
-Then, copy final result to `$out`, full path to .raypm/store/\<package_name\>\_version.
-- [X] While running, $PROJECT\_ROOT/.raypm will RW, and in the end — RO
-
 ***
 
 ### [ ] raypm -help
 Write custom `help` function
 ### [X] raypm -sync
 Get a fresh package database. It's will download db and unpack to ./raypm/pkgs
-+ [ ] We need get access to raypm-pkgs github page and download the latest archive.
-+ [ ] Download and unpack pkgs into ./raypm/pkgs
++ [X] We need get access to raypm-pkgs github page and download the latest archive.
++ [X] Download and unpack pkgs into ./raypm/pkgs
 
 ### [X] raypm -clean [option]
 Available options:
 1. `cache` — deleting .raypm/cache/*
 2. `all` — deleting entire .raypm directory
 
-### [ ] raypm -install [package]
+### [X] raypm -install [package]
 Installes a package
-+ [ ] Searching package in .raypm/pkgs
-+ [ ] Copying uninstall phase instructions in ./raypm/store/\<package\_name\>/uninstall.json
-+ [ ] With option `-o [path]` it will copy from `$out` to `[path]`
++ [X] Searching package in .raypm/pkgs
++ [X] Copying uninstall phase instructions in ./raypm/store/\<package\_name\>/uninstall.json
 
 ### [ ] raypm -reinstall [package]
 Calls `uninstall` and then `install`
@@ -66,7 +57,7 @@ If version of installed package mismatch with it's package.json, reinstalls
 ### [ ] raypm -upgrade-all
 Similar for `-upgrade`, but for all installed packages
 
-### [ ] raypm -search [keyword]
+### [X] raypm -search [keyword]
 Search packages by one keyword(in future remade this functionality and allow to search by separate keywords, that using package's description)
 
 ### [ ] raypm -info [package]
