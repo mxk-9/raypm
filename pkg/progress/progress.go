@@ -3,6 +3,8 @@ package progress
 import (
 	"fmt"
 	"io"
+	"os"
+	log "raypm/pkg/slog"
 )
 
 const (
@@ -20,19 +22,51 @@ type PassThru struct {
 	io.Reader
 	Total int
 	All   int
+	Prefix string
+	Show bool
+	FileSize int64
 }
 
 // Add settings for copying output:
 // Enable/Disable showing progress
 // Count filesize
 // Print file name
-func NewProgress() (pt *PassThru) {
+func NewProgress(show bool, prefix string, reader io.Reader) (pt *PassThru) {
+	pt = &PassThru{
+		Reader: reader,
+		Prefix: prefix,
+		Show: show,
+	}
 
 	return
 }
 
-func (pt *PassThru) SetText() {
+func (pt *PassThru) CountFileSize(f *os.File) (err error) {
+	fInfo, err := f.Stat()
+	if err != nil {
+		log.Errorln("Could not read file data:", err)
+		return
+	}
 
+	pt.FileSize = fInfo.Size()
+	return
+}
+
+func (pt *PassThru) fmtPrint() {
+	if !pt.Show {
+		return
+	}
+	total, measure := getFormattedData(pt.Total)
+
+	fmt.Printf(ClearLine)
+	fmt.Printf("\r")
+
+	fmt.Printf("%s: %2.2f %s", pt.Prefix, total, measure)
+
+	if pt.FileSize != 0 {
+		total, measure := getFormattedData(int(pt.FileSize))
+		fmt.Printf("/%2.2f %s", total, measure)
+	}
 }
 
 func (pt *PassThru) Read(p []byte) (int, error) {
@@ -40,16 +74,7 @@ func (pt *PassThru) Read(p []byte) (int, error) {
 
 	if err == nil {
 		pt.Total += n
-
-		total, measure := getFormattedData(pt.Total)
-
-		for range 30 {
-			fmt.Printf(" ")
-		}
-
-		fmt.Printf(ClearLine)
-		fmt.Printf("\r")
-		fmt.Printf("Downloading: %2.2f %s", total, measure)
+		pt.fmtPrint()
 	}
 
 	return n, err
