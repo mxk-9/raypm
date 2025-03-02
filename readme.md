@@ -60,7 +60,7 @@ Similar for `-upgrade`, but for all installed packages
 ### [X] raypm -search [keyword]
 Search packages by one keyword(in future remade this functionality and allow to search by separate keywords, that using package's description)
 
-### [ ] raypm -info [package]
+### [X] raypm -info [package]
 Parse information about chosen package. Output must be something like that:
 ```ini
 Name: pkg_name [Installed]

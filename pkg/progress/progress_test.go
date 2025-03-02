@@ -20,6 +20,11 @@ func TestPrintingLines(t *testing.T) {
 }
 
 func TestCopyingProgress(t *testing.T) {
+	testPath :=path.Join(os.TempDir(), "progress_test")
+	if _, err := os.Stat(testPath); err == nil {
+		os.RemoveAll(testPath)
+	}
+	
 	t.Run("copying progress", func(t *testing.T) {
 		fName := path.Join("testdata", "emptydata")
 		f, err := os.Open(fName)
@@ -30,9 +35,9 @@ func TestCopyingProgress(t *testing.T) {
 
 		src := NewProgress(true, "Copying "+f.Name(), f)
 		src.CountFileSize(f)
-		to := path.Join(os.TempDir(), "progress_test", "emptytest")
+		to := path.Join(testPath, "emptytest")
 
-		if err = os.MkdirAll(path.Join(os.TempDir(), "progress_test"), 0754); err != nil {
+		if err = os.MkdirAll(testPath, 0754); err != nil {
 			t.Error(err)
 		}
 

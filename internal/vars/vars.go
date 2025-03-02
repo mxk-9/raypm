@@ -7,12 +7,27 @@ import (
 )
 
 type Vars struct {
+	Base    string
 	Src     string
 	Out     string
 	Fetch   string
 	Cache   string
 	Package string
 	Dep     []string
+}
+
+// 'base' is a path to '.raypm'
+func NewVars(base, packageName string) (vv *Vars) {
+	vv = &Vars{
+		Base: base,
+	}
+
+	vv.Cache = path.Join(vv.Base, "cache", packageName)
+	vv.Src = path.Join(vv.Cache, "src")
+	vv.Fetch = path.Join(vv.Cache, "fetch")
+	vv.Out = path.Join(vv.Base, "store", packageName)
+	vv.Package = path.Join(vv.Base, "pkgs", packageName)
+	return
 }
 
 func (vv *Vars) ExpandVars(line *[]string) (changedStr []string) {

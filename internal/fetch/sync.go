@@ -26,10 +26,11 @@ type Releases []ReleaseInfo
 
 // It can returns an empty string, that means, package's database is already
 // exists
-func Sync() (pathToArchive, version string, err error) {
+func Sync(raypmPath string) (pathToArchive, version string, err error) {
 	var (
 		fInfo     *os.File
-		fInfoPath string = path.Join(".raypm", "pkgs", "info.txt")
+		pkgsPath string = path.Join(raypmPath, "pkgs")
+		fInfoPath string = path.Join(pkgsPath, "info.txt")
 	)
 	client := github.NewClient(nil)
 
@@ -61,7 +62,7 @@ func Sync() (pathToArchive, version string, err error) {
 	log.Debugln("Latest version:", latestTagName)
 	log.Debugln("Link:", latestLink)
 	log.Debugln("Creating cache directory")
-	cache := path.Join(".raypm", "cache")
+	cache := path.Join(raypmPath, "cache")
 
 	if _, err = os.Stat(cache); err != nil {
 		if err = os.MkdirAll(cache, 0754); err != nil {
@@ -90,7 +91,6 @@ func Sync() (pathToArchive, version string, err error) {
 				ver, latestTagName,
 			)
 
-			pkgsPath := path.Join(".raypm", "pkgs")
 			if err = os.RemoveAll(pkgsPath); err != nil {
 				log.Error("Failed to remove '%s': %s", pkgsPath, err)
 				return

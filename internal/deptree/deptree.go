@@ -10,13 +10,14 @@ import (
 	"raypm/internal/unpack"
 	"raypm/internal/vars"
 	log "raypm/pkg/slog"
+	"strings"
 )
 
 type PkgData struct {
+	BasePath string
 	PkgsPath string
 	Target   string
 }
-
 type Node struct {
 	Data    *PkgData
 	Pkg     *pkginfo.Package
@@ -30,13 +31,13 @@ type Tree struct {
 	Data  PkgData
 }
 
-// internals — is a path to packages
+// internals — is a path to .raypm(it can be global or local)
 func NewDepTree(internals, packageName, target string) (depTree *Tree,
 	err error) {
-
 	depTree = &Tree{
 		Data: PkgData{
-			PkgsPath: internals,
+			BasePath: internals,
+			PkgsPath: path.Join(internals, "pkgs"),
 			Target:   target,
 		},
 	}
@@ -56,19 +57,19 @@ func NewNode(data *PkgData, internalName string) (depNode *Node, err error) {
 		Vars: &vars.Vars{},
 	}
 
-	depNode.Vars.Cache = path.Join(".raypm", "cache", internalName)
-	depNode.Vars.Src = path.Join(depNode.Vars.Cache, "src")
-	depNode.Vars.Fetch = path.Join(depNode.Vars.Cache, "fetch")
-	depNode.Vars.Out = path.Join(".raypm", "store", internalName)
-	depNode.Vars.Package = path.Join(".raypm", "pkgs", internalName)
+	depNode.Vars = vars.NewVars(data.BasePath, internalName)
 
 	log.Debug("Vars:\n%v", depNode.Vars)
 
 	internal := &pkginfo.Package{}
 
 	log.Debug("Creating package item '%s'", internalName)
-	if internal, err = pkginfo.NewPackageItem(path.Join(data.PkgsPath, internalName),
-		data.Target); err != nil {
+	internal, err = pkginfo.NewPackageItem(
+		path.Join(data.PkgsPath, internalName),
+		data.Target,
+	)
+
+	if err != nil {
 		return
 	}
 
@@ -113,7 +114,7 @@ func (dn *Node) ShowNode() {
 		item.ShowNode()
 	}
 
-	log.Infoln(dn.Pkg.Info())
+	dn.Pkg.Info()
 	fmt.Println()
 }
 
@@ -129,75 +130,143 @@ func (dn *Node) InstallNode() (err error) {
 	}
 
 	log.Infoln("Installing", dn.Pkg.Name)
-	pkgsPath := path.Join(".raypm", "store", dn.Pkg.Name)
-	if _, err = os.Stat(pkgsPath); err == nil {
-		log.Info("Package '%s' already installed", pkgsPath)
+	// pkgsPath := path.Join(dn.Vars.Base, dn.Pkg.Name)
+	if _, err = os.Stat(dn.Vars.Out); err == nil {
+		log.Info("Package '%s' already installed", dn.Vars.Out)
 		return
 	} else {
 		err = nil
 	}
 
-	for _, item := range dn.Pkg.FetchPhase {
-		log.Info("Getting '%s'", item.From)
-		to := ""
-
-		expanded := dn.Vars.ExpandVars(&item.To)
-
-		for _, dest := range expanded {
-			to = path.Join(to, dest)
-		}
-		if err = fetch.GetFile(item.From, to); err != nil {
-			log.Error("Failed to get '%s'", item.From)
-			return
-		}
-	}
-
-	for _, item := range dn.Pkg.UnpackPhase {
-		from := path.Join(dn.Vars.ExpandVars(&item.Src)...)
-		log.Debug("Expanded from '%v'\nto '%v'", item.Src, from)
-
-		log.Info("Unpacking '%s'", from)
-
-		to := path.Join(dn.Vars.ExpandVars(&item.Dest)...)
-		log.Debug("Expanded from '%v'\nto '%v'", item.Dest, to)
-
-		if err = unpack.Unpack(item.Type, from, to, item.SelectedItems); err != nil {
-			return
-		}
-	}
-
-	for _, item := range dn.Pkg.BuildPhase {
-		if err = task.Do("build", item, dn.Vars); err != nil {
-			log.Errorln("Build phase failed")
-			return
-		}
-	}
-
-	outDir := dn.Vars.Out
-	if _, err = os.Stat(outDir); err == nil {
-		log.Error("Directory '%s' already exists!", outDir)
-		err = fmt.Errorf("DirectoryAlreadyExists")
+	if err = fetchPhase(&dn.Pkg.FetchPhase, dn.Vars); err != nil {
 		return
 	}
 
+	if err = unpackPhase(&dn.Pkg.UnpackPhase, dn.Vars); err != nil {
+		return
+	}
+
+	if err = taskPhase("build", &dn.Pkg.BuildPhase, dn.Vars); err != nil {
+		return
+	}
+
+	outDir := dn.Vars.Out
 	if err = os.MkdirAll(outDir, 0754); err != nil {
 		log.Error("Failed to create directory '%s': %s", outDir, err)
 		return
 	}
 
-	for _, item := range dn.Pkg.InstallPhase {
-		if err = task.Do("install", item, dn.Vars); err != nil {
-			log.Errorln("Install phase failed")
-			return
-		}
+	if err = taskPhase("install", &dn.Pkg.InstallPhase, dn.Vars); err != nil {
+		return
 	}
 
 	log.Info("Package '%s' installed", dn.Pkg.Name)
 	return
 }
 
-// TODO: UninstallNode
+// TODO
+func (dn *Node) BuildNode() (err error) {
+	return
+}
+
+// TODO
 func (dn *Node) UninstallNode(withDeps bool) (err error) {
+	if dn.Pkg == nil {
+		return
+	}
+
+	packageToUninstall := path.Join(".raypm", "store", dn.Pkg.Name)
+	errMsg := fmt.Sprintf("Cannot delete a package '%s':", dn.Pkg.Name)
+
+	if _, err = os.Stat(packageToUninstall); err != nil {
+		log.Error(errMsg)
+		log.Errorln(err)
+		return
+	}
+
+	if !withDeps && len(dn.Depends) > 0 {
+		log.Error(errMsg)
+		log.Errorln("Package depends on:")
+		for _, item := range dn.Depends {
+			fmt.Printf("\t+ %s\n", item.Pkg.Name)
+		}
+	} else if withDeps && len(dn.Depends) > 0 {
+		for _, item := range dn.Depends {
+			if err = item.UninstallNode(true); err != nil {
+				return
+			}
+		}
+	}
+
+	log.Infoln("Uninstalling", dn.Pkg.Name)
+	if err = taskPhase("uninstall", &dn.Pkg.UninstallPhase, dn.Vars); err != nil {
+		return
+	}
+
+	if err = os.RemoveAll(packageToUninstall); err != nil {
+		log.Errorln("Failed to remove package's directory")
+		log.Errorln(err)
+		return
+	}
+	return
+}
+
+func fetchPhase(data *[]pkginfo.FetchPath, vv *vars.Vars) (err error) {
+	for _, item := range *data {
+		log.Info("Getting '%s'", item.From)
+		to := ""
+
+		expanded := vv.ExpandVars(&item.To)
+
+		for _, dest := range expanded {
+			to = path.Join(to, dest)
+		}
+
+		if err = fetch.GetFile(item.From, to); err != nil {
+			log.Errorln("Fetch phase failed:")
+			log.Error("Failed to get '%s': %s", item.From, err)
+			break
+		}
+	}
+
+	return
+}
+
+func unpackPhase(data *[]pkginfo.UnpackTask, vv *vars.Vars) (err error) {
+	for _, item := range *data {
+		from := path.Join(vv.ExpandVars(&item.Src)...)
+		log.Debug("Expanded from '%v'\nto '%v'", item.Src, from)
+
+		log.Info("Unpacking '%s'", from)
+
+		to := path.Join(vv.ExpandVars(&item.Dest)...)
+		log.Debug("Expanded from '%v'\nto '%v'", item.Dest, to)
+
+		err = unpack.Unpack(item.Type, from, to, item.SelectedItems)
+
+		if err != nil {
+			log.Errorln("Unpack phase failed:")
+			log.Error("Failed to unpack '%s': '%s", from, err)
+			break
+		}
+	}
+	return
+}
+
+func taskPhase(phase string, data *[]pkginfo.CommandTask, vv *vars.Vars) (err error) {
+
+	if !(phase == "build" || phase == "install" || phase == "uninstall") {
+		log.Error("Uknown phase '%s'", phase)
+		return
+	}
+
+	for _, item := range *data {
+		if err = task.Do(phase, item, vv); err != nil {
+			log.Error("%s phase failed:", strings.ToTitle(phase))
+			log.Errorln(err)
+			break
+		}
+	}
 	return
 }
 

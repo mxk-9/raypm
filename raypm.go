@@ -30,8 +30,10 @@ const (
 func main() {
 	var (
 		ProgramTask     Operation = 0
-		PathToPkgs      string    = path.Join(".raypm", "pkgs")
-		lockPath        string    = path.Join(".raypm", "lock")
+		LocalRaypmPath  string    = ".raypm"
+		RaypmPath       string
+		PathToPkgs      string
+		lockPath        string
 		SelectedPackage string
 		Target          string
 
@@ -92,10 +94,14 @@ func main() {
 		Target = os.Getenv("GOOS")
 	}
 
+	RaypmPath = LocalRaypmPath
+	lockPath = path.Join(RaypmPath, "lock")
+	PathToPkgs = path.Join(RaypmPath, "pkgs")
+
 	switch ProgramTask {
 	case SyncPkgs:
-		enableRaypmAccess(true)
-		defer enableRaypmAccess(false)
+		enableRaypmAccess(RaypmPath, true)
+		defer enableRaypmAccess(RaypmPath, false)
 
 		log.Infoln("Synchronization")
 		var (
@@ -103,7 +109,7 @@ func main() {
 			version       string
 		)
 
-		raypmPkgs := ".raypm"
+		raypmPkgs := path.Join(RaypmPath, "pkgs")
 		log.Debugln("Creating .raypm directory")
 		if _, err = os.Stat(raypmPkgs); err != nil {
 			if err = os.MkdirAll(raypmPkgs, 0754); err != nil {
@@ -115,7 +121,7 @@ func main() {
 			log.Debugln("Directory already exists")
 		}
 
-		if pathToArchive, version, err = fetch.Sync(); err != nil {
+		if pathToArchive, version, err = fetch.Sync(RaypmPath); err != nil {
 			log.Errorln("Failed to sync:", err)
 			return
 		}
@@ -146,8 +152,8 @@ func main() {
 
 		log.Infoln("Package's database is up to date now")
 	case Clean:
-		enableRaypmAccess(true)
-		defer enableRaypmAccess(false)
+		enableRaypmAccess(RaypmPath, true)
+		defer enableRaypmAccess(RaypmPath, false)
 
 		dirToDel := ".raypm"
 
@@ -172,8 +178,8 @@ func main() {
 		}
 
 	case InstallPkg:
-		enableRaypmAccess(true)
-		defer enableRaypmAccess(false)
+		enableRaypmAccess(RaypmPath, true)
+		defer enableRaypmAccess(RaypmPath, false)
 
 		var (
 			fileLock *os.File
@@ -211,7 +217,7 @@ func main() {
 			log.Debugln("Deleted lock file")
 		}()
 
-		if deps, err = deptree.NewDepTree(PathToPkgs, SelectedPackage, Target); err != nil {
+		if deps, err = deptree.NewDepTree(RaypmPath, SelectedPackage, Target); err != nil {
 			log.Error("Failed to resolve dependencies:\n%s\n", err)
 			return
 		} else {
@@ -243,7 +249,10 @@ func main() {
 
 		for _, item := range dirs {
 			if item.IsDir() {
-				currentPackage, err := pkginfo.NewPackageItem(item.Name(), Target)
+				currentPackage, err := pkginfo.NewPackageItem(
+					item.Name(),
+					Target,
+				)
 
 				if err != nil {
 					log.Errorln(err)
@@ -252,9 +261,9 @@ func main() {
 
 				printLine := color.MagentaString(currentPackage.Name)
 
-				pth := path.Join(".raypm", "store", currentPackage.Name)
+				pth := path.Join(RaypmPath, "store", currentPackage.Name)
 				pth = os.Getenv("PWD") + string(os.PathSeparator) + pth
-				
+
 				if _, err = os.Stat(pth); err == nil {
 					printLine += color.GreenString("\t[Installed]")
 				}
@@ -264,8 +273,6 @@ func main() {
 		}
 	case FetchPkgInfo:
 		var currentPackage *pkginfo.Package
-
-		log.Info("Target:%s", Target)
 
 		if err = os.Chdir(path.Join(PathToPkgs, SelectedPackage)); err != nil {
 			log.Error("Package '%s' does not exists", SelectedPackage)
@@ -281,11 +288,11 @@ func main() {
 		}
 
 		fmt.Println("Package Information:")
-		fmt.Println(currentPackage.Info())
+		currentPackage.Info()
 	}
 }
 
-func enableRaypmAccess(enable bool) {
+func enableRaypmAccess(raypmPath string, enable bool) {
 	var bits fs.FileMode = 0555
 
 	if enable {
@@ -294,7 +301,7 @@ func enableRaypmAccess(enable bool) {
 
 	log.Debugln("Chaging to", bits)
 
-	recRaypmAccess(".raypm", bits)
+	recRaypmAccess(raypmPath, bits)
 	return
 }
 

@@ -92,32 +92,15 @@ func NewPackageItem(pathToPackage, target string) (internal *Package, err error)
 	return
 }
 
-func phasesInfo(data *string, phase ...any) {
-	if len(phase) != 0 {
-		for _, item := range phase {
-			*data = fmt.Sprintf("%s\t%v\n", *data, item)
+func (internal *Package) Info() {
+	fmt.Printf("Name: %s\n", internal.Name)
+	fmt.Printf("Description: %s\n", internal.Description)
+	if internal.Dependendencies != nil && len(internal.Dependendencies) > 0 {
+		fmt.Printf("Depends on:\n")
+		for _, item := range internal.Dependendencies {
+			fmt.Printf("\t+ %s\n", item)
 		}
 	}
-}
-
-func (internal *Package) Info() (data string) {
-	data = fmt.Sprintf("Name: %s\n", internal.Name)
-	data += fmt.Sprintf("Description: %s\n", internal.Description)
-	if internal.Dependendencies != nil && len(internal.Dependendencies) > 0 {
-		data += fmt.Sprintf("Depends on: %v\n", internal.Dependendencies)
-	}
-
-	data += fmt.Sprintln("Fetching:")
-	phasesInfo(&data, internal.FetchPhase)
-
-	data += fmt.Sprintln("Unpacking:")
-	phasesInfo(&data, internal.UnpackPhase)
-
-	data += fmt.Sprintln("Building:")
-	phasesInfo(&data, internal.BuildPhase)
-
-	data += fmt.Sprintln("Installation:")
-	phasesInfo(&data, internal.InstallPhase)
 
 	return
 }
