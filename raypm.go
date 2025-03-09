@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path"
+	"raypm/internal/dbpkg"
 	"raypm/internal/deptree"
 	"raypm/internal/fetch"
 	"raypm/internal/pkginfo"
@@ -35,6 +36,7 @@ func main() {
 		PathToPkgs      string
 		lockPath        string
 		SelectedPackage string
+		dbJson          string = path.Join(RaypmPath, "db.json")
 		Target          string
 
 		err error
@@ -184,9 +186,10 @@ func main() {
 		var (
 			fileLock *os.File
 			deps     *deptree.Tree
+			db       *dbpkg.PkgDb
 		)
 
-		log.Info("Target:%s", Target)
+		// log.Info("Target:%s", Target)
 
 		if _, err = os.Stat(lockPath); err == nil {
 			log.Error("Another process is using '%s', exiting", lockPath)
@@ -217,7 +220,17 @@ func main() {
 			log.Debugln("Deleted lock file")
 		}()
 
-		if deps, err = deptree.NewDepTree(RaypmPath, SelectedPackage, Target); err != nil {
+		if _, err = os.Stat(dbJson); err != nil {
+			db = dbpkg.NewDb(dbJson)
+		} else {
+			db, err = dbpkg.Open(dbJson)
+			if err != nil {
+				return
+			}
+		}
+		defer db.WriteData()
+
+		if deps, err = deptree.NewDepTree(RaypmPath, SelectedPackage, Target, db); err != nil {
 			log.Error("Failed to resolve dependencies:\n%s\n", err)
 			return
 		} else {

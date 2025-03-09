@@ -1,6 +1,6 @@
 # RAYPM - package manager for projects on Raylib
-Это простой пакетный менеджер, позволяющий установить необходимые зависимости для создания игр на движке Raylib и портирования этих игр на другие платформы.
 Simple package manager, allows you to install needed dependencies, like raylib.dll for Windows
+Простой пакетный менеджер, позволяющий установить необходимые зависимости для создания игр на движке Raylib и портирования этих игр на другие платформы.
 
 ## Installation
 ```console
@@ -9,22 +9,18 @@ $ go install github.com/mxk-9/raypm@latest
 
 ## ToDo:
 - [ ] **Use raypm as a build system** [can\_i\_use\_raypm\_as\_a\_build\_system.txt](third_party/can_i_use_raypm_as_a_build_system.txt)
-- [doc.txt](third_party/doc.txt)
-- [X] All installed packages will store in $PROJECT_ROOT/.raypm/store:
-```console
-raylib-src
-raylib-dll-mingw (dependends on raylib-src and mingw)
-raylib-dll-mvsc
-raylib-android (depends on raylib-src, mingw(if target==windows), android)
-mingw
-base
-android
-```
-
+- [ ] **Crossplatform** — ability to build package for another system (host ≠ target)
+  [cross.txt](third\_party/cross.txt)
+- [doc.txt](third\_party/doc.txt)
+- [ ] Use Lua to describe package instead of json-hell
+- [ ] Use MySQL to mantain package dependencies
+- [ ] Temporary use json files as database
 ***
 
 ### [ ] raypm -help
 Write custom `help` function
+### [ ] raypm -init <package\_name>
+Creates <package\_name> in current directory and adds to `lists` in `$HOME/.raypm/`
 ### [X] raypm -sync
 Get a fresh package database. It's will download db and unpack to ./raypm/pkgs
 + [X] We need get access to raypm-pkgs github page and download the latest archive.
@@ -40,16 +36,9 @@ Installes a package
 + [X] Searching package in .raypm/pkgs
 + [X] Copying uninstall phase instructions in ./raypm/store/\<package\_name\>/uninstall.json
 
-### [ ] raypm -reinstall [package]
-Calls `uninstall` and then `install`
-
 ### [ ] raypm -uninstall [package]
 + [ ] Ensures that package is installed by search in .raypm/store/\<package\_name\>
 + [ ] Call ./raypm/store/\<package_name\>/uninstall.json
-
-### [ ] raypm -downgrade [date]
-If `date` is not define, it's just list available releases
-When user choose a release, raypm calling -sync with specific link.
 
 ### [ ] raypm -upgrade [package]
 If version of installed package mismatch with it's package.json, reinstalls

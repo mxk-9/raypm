@@ -20,22 +20,18 @@ const ClearLine = "\033[2K"
 
 type PassThru struct {
 	io.Reader
-	Total int
-	All   int
-	Prefix string
-	Show bool
+	Total    int
+	All      int
+	Prefix   string
+	Show     bool
 	FileSize int64
 }
 
-// Add settings for copying output:
-// Enable/Disable showing progress
-// Count filesize
-// Print file name
 func NewProgress(show bool, prefix string, reader io.Reader) (pt *PassThru) {
 	pt = &PassThru{
 		Reader: reader,
 		Prefix: prefix,
-		Show: show,
+		Show:   show,
 	}
 
 	return

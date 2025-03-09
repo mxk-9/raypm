@@ -8,6 +8,7 @@
     5. Uninstalling packages
     6. Sync
     6.1 Pushing pkgs releases notes
+	7. Local database
 --------------
 
 --[1. Predefined variables]--
@@ -85,3 +86,24 @@ OAuth token — строка, которую клиент OAuth использу
 
 Bearer tokens
 -------------
+
+--[7. Local database]--
+.raypm/db.json будет хранить информацию об установленных пакетах и их зависимостях, чтобы при удалении прервать процесс, если от удаляемого пакета зависит другой.
+
+Например, пакет raylib-dll-mingw зависит от raylib-src и если попытаться удалить второй, то программа оповестит пользователя, что raylib-dll-mingw зависит от raylib-src и завершит работу
+
+db.json будет использоваться только при окончании установки пакета и перед удалением пакета
+
+структура
+{[
+	{
+		"name" : "name"
+		"depends" : ["onepackage"]
+	},
+
+	"packagename2" : {
+		"depends" : []
+	},
+	...
+]}
+------------------------

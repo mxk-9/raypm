@@ -102,6 +102,13 @@ func (internal *Package) Info() {
 		}
 	}
 
+	if len(internal.Systems) > 0 {
+		fmt.Printf("Supports:\n")
+		for _, item := range internal.Systems {
+			fmt.Printf("\t+ %s\n", item)
+		}
+	}
+
 	return
 }
 

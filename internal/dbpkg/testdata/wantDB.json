@@ -1,0 +1,12 @@
+{
+  "package" : {},
+
+  "packageDep" : {
+    "depends_on" : ["packageReq"]
+  },
+
+  "packageReq" : {
+    "required_for":["packageDep"]
+  }
+
+}

@@ -1,0 +1,5 @@
+{
+  "name" : "deppackage",
+  "description" : "package for testing dependencies",
+  "dependencies" : ["testpackage", "another"]
+}
