@@ -7,7 +7,6 @@ import (
 	"os"
 	"path"
 	log "raypm/pkg/slog"
-	"reflect"
 	"testing"
 )
 
@@ -50,7 +49,7 @@ func TestOpenDatabase(t *testing.T) {
 }
 
 func TestAddDelPackage(t *testing.T) {
-	log.Init(true)
+	log.Init(false)
 
 	inDb := path.Join("testdata", "wantDB.json")
 	tmpDir := path.Join(os.TempDir())
@@ -90,11 +89,33 @@ func TestAddDelPackage(t *testing.T) {
 		defer output.WriteData()
 
 		maps.Copy(output.Pkgs, local.Pkgs)
+		wantPkgs := make(map[string]pkg)
+
+		wantPkgs = map[string]pkg{
+			"neco-arc": {
+				DependsOn: []string{"package"},
+			},
+			"package": {
+				RequiredFor: []string{"neco-arc"},
+			},
+
+			"packageDep": {
+				DependsOn: []string{"packageReq"},
+			},
+
+			"packageReq": {
+				RequiredFor: []string{"packageDep"},
+			},
+		}
 
 		output.Add("neco-arc")
 		output.AddDep("neco-arc", "package")
 
 		fmt.Printf("%v\n", output.Pkgs)
+
+		if !maps.EqualFunc(wantPkgs, output.Pkgs, equalPkg) {
+			t.Error(mismatchMaps(&wantPkgs, &output.Pkgs))
+		}
 	})
 
 	t.Run("delete package", func(t *testing.T) {
@@ -120,11 +141,9 @@ func TestAddDelPackage(t *testing.T) {
 
 		output.Del("package")
 
-		if !(reflect.DeepEqual(wantPackages, output.Pkgs)) {
-			t.Errorf(
-				"\nExpect:\n%v\nGot:\n%v\n",
-				wantPackages, output.Pkgs,
-			)
+		// Use maps.EqualFunc
+		if !(maps.EqualFunc(wantPackages, output.Pkgs, equalPkg)) {
+			t.Error(mismatchMaps(&wantPackages, &output.Pkgs))
 		}
 	})
 
@@ -135,14 +154,41 @@ func TestAddDelPackage(t *testing.T) {
 			t.Error(err)
 		}
 
-		ok := reflect.DeepEqual(result.Pkgs, wantPackages)
+		ok := maps.EqualFunc(wantPackages, result.Pkgs, equalPkg)
 		if !ok {
-			t.Errorf(
-				"%s\n\ngot: %v\n\nwant: %v",
-				"Failed to compare result with expectation:",
-				result.Pkgs,
-				wantPackages,
-			)
+			t.Error(mismatchMaps(&wantPackages, &result.Pkgs))
 		}
 	})
+}
+
+func equalPkg(a, b pkg) bool {
+	aDep := a.DependsOn
+	aReq := a.RequiredFor
+	bDep := b.DependsOn
+	bReq := b.RequiredFor
+
+	if len(aDep) != len(bDep) || len(aReq) != len(bReq) {
+		return false
+	}
+
+	for i := range aDep {
+		if aDep[i] != bDep[i] {
+			return false
+		}
+	}
+
+	for i := range aReq {
+		if aReq[i] != bReq[i] {
+			return false
+		}
+	}
+
+	return true
+}
+
+func mismatchMaps(expect, got *map[string]pkg) string {
+	return fmt.Sprintf(
+		"\nExpect:\n%v\nGot:\n%v\n",
+		expect, got,
+	)
 }

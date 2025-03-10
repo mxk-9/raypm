@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	log "raypm/pkg/slog"
+	"slices"
 )
 
 type pkg struct {
@@ -30,6 +31,7 @@ func NewDb(pathToDb string) *PkgDb {
 }
 
 func Open(pathToDb string) (pd *PkgDb, err error) {
+
 	if _, err = os.Stat(pathToDb); err != nil {
 		log.Errorln(err)
 		return
@@ -97,8 +99,8 @@ func (pd *PkgDb) AddDep(pkgName, depName string) {
 	dep, okDep := pd.Pkgs[depName]
 
 	if okDep && okTo {
-		addingTo.DependsOn = append(addingTo.DependsOn, depName)
-		dep.RequiredFor = append(dep.RequiredFor, pkgName)
+		addingTo.DependsOn = alphIns(addingTo.DependsOn, depName)
+		dep.RequiredFor = alphIns(dep.RequiredFor, pkgName)
 
 		pd.Pkgs[pkgName] = addingTo
 		pd.Pkgs[depName] = dep
@@ -143,6 +145,41 @@ func (pd *PkgDb) Del(pkgName string) (err error) {
 					pd.Pkgs[k] = v
 				}
 			}
+		}
+	}
+
+	return
+}
+
+func alphIns(s []string, item string) (newSlice []string) {
+	if len(s) == 0 {
+		newSlice = append(s, item)
+		return
+	} else if len(s) == 1 {
+		if s[0] < item {
+			newSlice = []string{s[0], item}
+		} else if item < s[0] {
+			newSlice = []string{item, s[0]}
+		}
+		return
+	}
+
+	for i := range s {
+		if i == len(s)-1 {
+			break
+		}
+
+		left := s[i]
+		right := s[i+1]
+
+		if item < left {
+			newSlice = slices.Insert(s, 0, item)
+			break
+		} else if left <= item && item <= right {
+			newSlice = slices.Insert(s, i+1, item)
+			break
+		} else if right < item {
+			newSlice = append(s, item)
 		}
 	}
 
