@@ -161,7 +161,6 @@ func (dn *Node) UninstallNode() (err error) {
 		return
 	}
 
-	// Get list of installed packages and look if some package depends on current
 	inDb, inStore := checkExisting(dn.Pkg.Name, dn.Db, dn.Vars.Out)
 
 	if inDb != inStore {
@@ -176,17 +175,20 @@ func (dn *Node) UninstallNode() (err error) {
 	}
 
 	//TODO
+	if err = dn.Db.Del(dn.Pkg.Name); err != nil {
+		return
+	}
 
 	log.Infoln("Uninstalling", dn.Pkg.Name)
 	if err = taskPhase("uninstall", &dn.Pkg.UninstallPhase, dn.Vars); err != nil {
 		return
 	}
 
-	// if err = os.RemoveAll(packageToUninstall); err != nil {
-	// 	log.Errorln("Failed to remove package's directory")
-	// 	log.Errorln(err)
-	// 	return
-	// }
+	if err = os.RemoveAll(dn.Vars.Out); err != nil {
+		log.Errorln("Failed to remove package's directory")
+		log.Errorln(err)
+		return
+	}
 	return
 }
 

@@ -15,6 +15,7 @@ $ go install github.com/mxk-9/raypm@latest
 - [ ] Use Lua to describe package instead of json-hell
 - [ ] Use MySQL to mantain package dependencies
 - [ ] Temporary use json files as database
+- [ ] Weird bug, my pm trying to download/unpack one thing twice and install the package twice
 ***
 
 ### [ ] raypm -help

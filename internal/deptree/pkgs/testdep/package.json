@@ -1,5 +1,5 @@
 {
-  "name" : "deppackage",
+  "name" : "testdep",
   "description" : "package for testing dependencies",
   "dependencies" : ["testpackage", "another"]
 }

@@ -36,7 +36,7 @@ func main() {
 		PathToPkgs      string
 		lockPath        string
 		SelectedPackage string
-		dbJson          string = path.Join(RaypmPath, "db.json")
+		dbJson          string
 		Target          string
 
 		err error
@@ -99,6 +99,7 @@ func main() {
 	RaypmPath = LocalRaypmPath
 	lockPath = path.Join(RaypmPath, "lock")
 	PathToPkgs = path.Join(RaypmPath, "pkgs")
+	dbJson = path.Join(RaypmPath, "db.json")
 
 	switch ProgramTask {
 	case SyncPkgs:
@@ -179,7 +180,7 @@ func main() {
 			log.Infoln("Directory already deleted")
 		}
 
-	case InstallPkg:
+	case InstallPkg, RemovePkg:
 		enableRaypmAccess(RaypmPath, true)
 		defer enableRaypmAccess(RaypmPath, false)
 
@@ -188,8 +189,6 @@ func main() {
 			deps     *deptree.Tree
 			db       *dbpkg.PkgDb
 		)
-
-		// log.Info("Target:%s", Target)
 
 		if _, err = os.Stat(lockPath); err == nil {
 			log.Error("Another process is using '%s', exiting", lockPath)
@@ -220,23 +219,43 @@ func main() {
 			log.Debugln("Deleted lock file")
 		}()
 
-		if _, err = os.Stat(dbJson); err != nil {
-			db = dbpkg.NewDb(dbJson)
-		} else {
-			db, err = dbpkg.Open(dbJson)
-			if err != nil {
+		if ProgramTask == InstallPkg {
+			if _, err = os.Stat(dbJson); err != nil {
+				db = dbpkg.NewDb(dbJson)
+			} else {
+				db, err = dbpkg.Open(dbJson)
+				if err != nil {
+					return
+				}
+			}
+			defer db.WriteData()
+
+			if deps, err = deptree.NewDepTree(RaypmPath, SelectedPackage, Target, db); err != nil {
+				log.Error("Failed to resolve dependencies:\n%s\n", err)
+				return
+			} else {
+				deps.Install()
+			}
+		} else if ProgramTask == RemovePkg {
+			if _, err = os.Stat(dbJson); err != nil {
+				log.Errorln("The local database not found, perhaps no packages were installed")
 				return
 			}
-		}
-		defer db.WriteData()
 
-		if deps, err = deptree.NewDepTree(RaypmPath, SelectedPackage, Target, db); err != nil {
-			log.Error("Failed to resolve dependencies:\n%s\n", err)
-			return
-		} else {
-			deps.Install()
-		}
+			db, err := dbpkg.Open(dbJson)
+			if err != nil {
+				log.Errorln(err)
+				return
+			}
+			defer db.WriteData()
 
+			if deps, err = deptree.NewDepTree(RaypmPath, SelectedPackage, Target, db); err != nil {
+				log.Error("Failed to resolve dependencies:\n%s\n", err)
+				return
+			} else {
+				deps.Uninstall()
+			}
+		}
 	case ListPackages:
 		var (
 			dirs []os.DirEntry

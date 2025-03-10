@@ -3,10 +3,10 @@ package fetch
 import (
 	"fmt"
 	"io"
-	"raypm/pkg/progress"
 	"net/http"
 	"os"
 	"path/filepath"
+	"raypm/pkg/progress"
 	log "raypm/pkg/slog"
 )
 
@@ -25,7 +25,7 @@ func GetFile(link, destPath string) (err error) {
 	}
 	defer resp.Body.Close()
 
-	src := &progress.PassThru{Reader: resp.Body}
+	src := progress.NewProgress(true, "Downloading", resp.Body)
 
 	currDir := filepath.Dir(destPath)
 
@@ -52,4 +52,3 @@ func GetFile(link, destPath string) (err error) {
 
 	return
 }
-

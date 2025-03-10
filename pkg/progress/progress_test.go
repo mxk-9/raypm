@@ -20,11 +20,13 @@ func TestPrintingLines(t *testing.T) {
 }
 
 func TestCopyingProgress(t *testing.T) {
-	testPath :=path.Join(os.TempDir(), "progress_test")
-	if _, err := os.Stat(testPath); err == nil {
-		os.RemoveAll(testPath)
+	testPath := path.Join(os.TempDir())
+	testPath, err := os.MkdirTemp(testPath, "progress_test")
+	if err != nil {
+		t.Errorf("Cannot create temp directory: %s\n", err)
+		t.FailNow()
 	}
-	
+
 	t.Run("copying progress", func(t *testing.T) {
 		fName := path.Join("testdata", "emptydata")
 		f, err := os.Open(fName)
