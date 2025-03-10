@@ -18,6 +18,31 @@ type pkg struct {
 	RequiredFor []string `json:"required_for"`
 }
 
+func (a *pkg) IsEqual(b pkg) bool {
+	aDep := a.DependsOn
+	aReq := a.RequiredFor
+	bDep := b.DependsOn
+	bReq := b.RequiredFor
+
+	if len(aDep) != len(bDep) || len(aReq) != len(bReq) {
+		return false
+	}
+
+	for i := range aDep {
+		if aDep[i] != bDep[i] {
+			return false
+		}
+	}
+
+	for i := range aReq {
+		if aReq[i] != bReq[i] {
+			return false
+		}
+	}
+
+	return true
+}
+
 type PkgDb struct {
 	Pkgs     map[string]pkg
 	PathToDb string
@@ -110,8 +135,6 @@ func (pd *PkgDb) AddDep(pkgName, depName string) {
 func (pd *PkgDb) Del(pkgName string) (err error) {
 	if _, ok := pd.Pkgs[pkgName]; ok {
 		req := pd.Pkgs[pkgName]
-
-		log.Debug("Looking if '%s' need for other package", pkgName)
 
 		if len(req.RequiredFor) > 0 {
 			err = fmt.Errorf("PackageIsRequiredByOther")

@@ -43,9 +43,9 @@ func TestInstall(t *testing.T) {
 
 		if err != nil {
 			t.Errorf("Failed to resolve dependencies:\n%s\n", err)
-		} else {
-			localTree.Install()
 		}
+
+		localTree.Install()
 	})
 }
 

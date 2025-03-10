@@ -1,7 +1,6 @@
 package dbpkg
 
 import (
-	"encoding/json"
 	"fmt"
 	"maps"
 	"os"
@@ -9,32 +8,6 @@ import (
 	log "raypm/pkg/slog"
 	"testing"
 )
-
-func TestStructToJson(t *testing.T) {
-	log.Init(false)
-
-	t.Run("check convertion", func(t *testing.T) {
-		dbobj := &PkgDb{
-			Pkgs: make(map[string]pkg, 0),
-		}
-
-		dbobj.Pkgs["bebra"] = pkg{
-			DependsOn:   []string{"snus"},
-			RequiredFor: []string{"notest"},
-		}
-
-		dbobj.Pkgs["amogus"] = pkg{
-			DependsOn:   []string{"bebra"},
-			RequiredFor: []string{"package", "abobus"},
-		}
-
-		err := json.NewEncoder(os.Stdout).Encode(&dbobj.Pkgs)
-		if err != nil {
-			t.Errorf("Failed to encode: %s", err)
-		}
-
-	})
-}
 
 func TestOpenDatabase(t *testing.T) {
 	log.Init(false)
@@ -110,8 +83,6 @@ func TestAddDelPackage(t *testing.T) {
 
 		output.Add("neco-arc")
 		output.AddDep("neco-arc", "package")
-
-		fmt.Printf("%v\n", output.Pkgs)
 
 		if !maps.EqualFunc(wantPkgs, output.Pkgs, equalPkg) {
 			t.Error(mismatchMaps(&wantPkgs, &output.Pkgs))

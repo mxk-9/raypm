@@ -110,7 +110,6 @@ func (dn *Node) InstallNode() (err error) {
 		if err = item.InstallNode(); err != nil {
 			return
 		}
-		dn.Db.AddReq(item.Pkg.Name, dn.Pkg.Name)
 		dn.Db.Add(dn.Pkg.Name)
 		dn.Db.AddDep(dn.Pkg.Name, item.Pkg.Name)
 	}
