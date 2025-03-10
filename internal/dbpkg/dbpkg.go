@@ -7,18 +7,19 @@ package dbpkg
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"path"
 	log "raypm/pkg/slog"
 	"slices"
 )
 
-type pkg struct {
+type Relations struct {
 	DependsOn   []string `json:"depends_on"`
 	RequiredFor []string `json:"required_for"`
 }
 
-func (a *pkg) IsEqual(b pkg) bool {
+func IsRelEqual(a, b Relations) bool {
 	aDep := a.DependsOn
 	aReq := a.RequiredFor
 	bDep := b.DependsOn
@@ -43,15 +44,21 @@ func (a *pkg) IsEqual(b pkg) bool {
 	return true
 }
 
+type PkgsRel map[string]Relations
+
+func (a PkgsRel) IsEqual(b PkgsRel) bool {
+	return maps.EqualFunc(a, b, IsRelEqual)
+}
+
 type PkgDb struct {
-	Pkgs     map[string]pkg
+	Pkgs     PkgsRel
 	PathToDb string
 }
 
 func NewDb(pathToDb string) *PkgDb {
 	return &PkgDb{
 		PathToDb: pathToDb,
-		Pkgs:     make(map[string]pkg),
+		Pkgs:     make(map[string]Relations),
 	}
 }
 
@@ -62,7 +69,7 @@ func Open(pathToDb string) (pd *PkgDb, err error) {
 		return
 	}
 	pd = &PkgDb{
-		Pkgs:     make(map[string]pkg, 0),
+		Pkgs:     make(map[string]Relations, 0),
 		PathToDb: pathToDb,
 	}
 
@@ -107,42 +114,42 @@ func (pd *PkgDb) WriteData() (err error) {
 	return
 }
 
-func (pd *PkgDb) IsExists(pkgName string) bool {
-	_, ok := pd.Pkgs[pkgName]
+func (pd *PkgDb) IsExists(RelationsName string) bool {
+	_, ok := pd.Pkgs[RelationsName]
 
 	return ok
 }
 
-func (pd *PkgDb) Add(pkgName string) {
-	if _, ok := pd.Pkgs[pkgName]; !ok {
-		pd.Pkgs[pkgName] = pkg{}
+func (pd *PkgDb) Add(RelationsName string) {
+	if _, ok := pd.Pkgs[RelationsName]; !ok {
+		pd.Pkgs[RelationsName] = Relations{}
 	}
 }
 
-func (pd *PkgDb) AddDep(pkgName, depName string) {
-	addingTo, okTo := pd.Pkgs[pkgName]
+func (pd *PkgDb) AddDep(RelationsName, depName string) {
+	addingTo, okTo := pd.Pkgs[RelationsName]
 	dep, okDep := pd.Pkgs[depName]
 
 	if okDep && okTo {
 		addingTo.DependsOn = alphIns(addingTo.DependsOn, depName)
-		dep.RequiredFor = alphIns(dep.RequiredFor, pkgName)
+		dep.RequiredFor = alphIns(dep.RequiredFor, RelationsName)
 
-		pd.Pkgs[pkgName] = addingTo
+		pd.Pkgs[RelationsName] = addingTo
 		pd.Pkgs[depName] = dep
 	}
 }
 
-func (pd *PkgDb) Del(pkgName string) (err error) {
-	if _, ok := pd.Pkgs[pkgName]; ok {
-		req := pd.Pkgs[pkgName]
+func (pd *PkgDb) Del(RelationsName string) (err error) {
+	if _, ok := pd.Pkgs[RelationsName]; ok {
+		req := pd.Pkgs[RelationsName]
 
 		if len(req.RequiredFor) > 0 {
 			err = fmt.Errorf("PackageIsRequiredByOther")
 			for _, item := range req.RequiredFor {
-				log.Error("Package '%s' depends on '%s'", item, pkgName)
+				log.Error("Package '%s' depends on '%s'", item, RelationsName)
 			}
 		} else {
-			delete(pd.Pkgs, pkgName)
+			delete(pd.Pkgs, RelationsName)
 
 			for k, v := range pd.Pkgs {
 				ignoreInd := -1
@@ -150,7 +157,7 @@ func (pd *PkgDb) Del(pkgName string) (err error) {
 				right := make([]string, 0)
 
 				for i, item := range v.RequiredFor {
-					if item == pkgName {
+					if item == RelationsName {
 						ignoreInd = i
 						break
 					}

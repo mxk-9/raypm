@@ -28,12 +28,12 @@ func TestAddDelPackage(t *testing.T) {
 	tmpDir := path.Join(os.TempDir())
 	tmpDir, err := os.MkdirTemp(tmpDir, "db_test_*")
 
-	wantPackages := map[string]pkg{
-		"package": pkg{
+	wantPackages := PkgsRel{
+		"package": Relations{
 			RequiredFor: []string{"neco-arc"},
 		},
-		"packageReq": pkg{},
-		"neco-arc": pkg{
+		"packageReq": Relations{},
+		"neco-arc": Relations{
 			DependsOn: []string{"package"},
 		},
 	}
@@ -62,9 +62,9 @@ func TestAddDelPackage(t *testing.T) {
 		defer output.WriteData()
 
 		maps.Copy(output.Pkgs, local.Pkgs)
-		wantPkgs := make(map[string]pkg)
+		wantPkgs := make(PkgsRel)
 
-		wantPkgs = map[string]pkg{
+		wantPkgs = PkgsRel{
 			"neco-arc": {
 				DependsOn: []string{"package"},
 			},
@@ -84,7 +84,7 @@ func TestAddDelPackage(t *testing.T) {
 		output.Add("neco-arc")
 		output.AddDep("neco-arc", "package")
 
-		if !maps.EqualFunc(wantPkgs, output.Pkgs, equalPkg) {
+		if !wantPkgs.IsEqual(output.Pkgs) {
 			t.Error(mismatchMaps(&wantPkgs, &output.Pkgs))
 		}
 	})
@@ -96,11 +96,26 @@ func TestAddDelPackage(t *testing.T) {
 		}
 		defer output.WriteData()
 
+		wantPkgs := PkgsRel{
+			"neco-arc": {
+				DependsOn: []string{"package"},
+			},
+
+			"package": {
+				RequiredFor: []string{"neco-arc"},
+			},
+
+			"packageReq": {},
+		}
+
 		err = output.Del("packageDep")
 		if err != nil {
 			t.Error(err)
 		}
 
+		if !wantPkgs.IsEqual(output.Pkgs) {
+			t.Error(mismatchMaps(&wantPkgs, &output.Pkgs))
+		}
 	})
 
 	t.Run("delete package that using by other", func(t *testing.T) {
@@ -132,7 +147,7 @@ func TestAddDelPackage(t *testing.T) {
 	})
 }
 
-func equalPkg(a, b pkg) bool {
+func equalPkg(a, b Relations) bool {
 	aDep := a.DependsOn
 	aReq := a.RequiredFor
 	bDep := b.DependsOn
@@ -157,7 +172,7 @@ func equalPkg(a, b pkg) bool {
 	return true
 }
 
-func mismatchMaps(expect, got *map[string]pkg) string {
+func mismatchMaps(expect, got *PkgsRel) string {
 	return fmt.Sprintf(
 		"\nExpect:\n%v\nGot:\n%v\n",
 		expect, got,
