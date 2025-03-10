@@ -174,7 +174,6 @@ func (dn *Node) UninstallNode() (err error) {
 		return
 	}
 
-	//TODO
 	if err = dn.Db.Del(dn.Pkg.Name); err != nil {
 		return
 	}
@@ -189,6 +188,10 @@ func (dn *Node) UninstallNode() (err error) {
 		log.Errorln(err)
 		return
 	}
+
+	os.RemoveAll(dn.Vars.Cache)
+
+	log.Info("Package '%s' removed", dn.Pkg.Name)
 	return
 }
 
