@@ -2,10 +2,9 @@ package deptree
 
 import (
 	"path"
-	"raypm/internal/fetch"
+	"raypm/internal/phases"
 	"raypm/internal/pkginfo"
 	"raypm/internal/task"
-	"raypm/internal/unpack"
 	"raypm/internal/vars"
 	log "raypm/pkg/slog"
 	"strings"
@@ -22,7 +21,7 @@ func fetchPhase(data *[]pkginfo.FetchPath, vv *vars.Vars) (err error) {
 			to = path.Join(to, dest)
 		}
 
-		if err = fetch.GetFile(item.From, to); err != nil {
+		if err = phases.GetFile(item.From, to); err != nil {
 			log.Errorln("Fetch phase failed:")
 			log.Error("Failed to get '%s': %s", item.From, err)
 			break
@@ -42,7 +41,7 @@ func unpackPhase(data *[]pkginfo.UnpackTask, vv *vars.Vars) (err error) {
 		to := path.Join(vv.ExpandVars(&item.Dest)...)
 		log.Debug("Expanded from '%v'\nto '%v'", item.Dest, to)
 
-		err = unpack.Unpack(item.Type, from, to, item.SelectedItems)
+		err = phases.Unpack(item.Type, from, to, item.SelectedItems)
 
 		if err != nil {
 			log.Errorln("Unpack phase failed:")

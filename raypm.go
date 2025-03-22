@@ -3,9 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/fs"
 	"os"
 	"path"
+	"raypm/internal/app"
 	"raypm/internal/dbpkg"
 	"raypm/internal/deptree"
 	"raypm/internal/fetch"
@@ -17,94 +17,94 @@ import (
 	"github.com/fatih/color"
 )
 
-type Operation uint8
-
-const (
-	ListPackages Operation = iota
-	SyncPkgs
-	Clean
-	FetchPkgInfo
-	InstallPkg
-	RemovePkg
-)
-
 func main() {
 	var (
-		ProgramTask     Operation = 0
-		LocalRaypmPath  string    = ".raypm"
-		RaypmPath       string
-		PathToPkgs      string
-		lockPath        string
+		ProgramTask     app.Operation = 0
 		SelectedPackage string
-		dbJson          string
-		Target          string
+		settings        *app.Settings
 
 		err error
 
-		listPkgs     bool
-		Debug        bool
-		syncPkgs     bool
-		fetchPkgInfo string
-		installPkg   string
-		removePkg    string
-		cleanStorage string
+		// Flags
+
+		operations int = 0
 	)
 
-	flag.BoolVar(&listPkgs, "list", false, "List all available packages")
-	flag.BoolVar(&Debug, "d", false, "Print debug logs")
-	flag.BoolVar(&syncPkgs, "sync", false, "Get latest package's database")
-	flag.StringVar(&fetchPkgInfo, "info", "", "Show information about package")
-	flag.StringVar(&installPkg, "install", "", "Install a package")
-	flag.StringVar(&removePkg, "remove", "", "Remove a package")
-	flag.StringVar(&cleanStorage,
-		"clean",
-		"",
-		"Cleaning raypm's storage. Available options: 'cache', 'all'",
-	)
-	flag.Parse()
+	opts, err := app.NewOptions()
+	_ = opts
+	// Handle errors
 
-	log.Init(Debug)
-
-	if flag.NFlag() > 1 && !Debug || flag.NFlag() > 2 && Debug {
-		log.Fatalln("Choose only one operation. Type 'raypm -h' to see them")
-	}
-
-	if flag.NFlag() == 0 {
-		log.Warnln("There's nothing to do. Type 'raypm -h'")
-	}
+	log.Init(opts.Debug)
 
 	if listPkgs {
 		ProgramTask = ListPackages
-	} else if fetchPkgInfo != "" {
+		operations++
+	}
+
+	if fetchPkgInfo != "" {
 		ProgramTask = FetchPkgInfo
 		SelectedPackage = fetchPkgInfo
-	} else if installPkg != "" {
+		operations++
+	}
+
+	if installPkg != "" {
 		ProgramTask = InstallPkg
 		SelectedPackage = installPkg
-	} else if syncPkgs {
+		operations++
+	}
+
+	if syncPkgs {
 		ProgramTask = SyncPkgs
-	} else if removePkg != "" {
+		operations++
+	}
+
+	if removePkg != "" {
 		ProgramTask = RemovePkg
 		SelectedPackage = removePkg
-	} else if cleanStorage != "" {
+		operations++
+	}
+
+	if cleanStorage != "" {
 		ProgramTask = Clean
+		operations++
 	}
 
-	if os.Getenv("GOOS") == "" {
-		Target = runtime.GOOS
+	if buildPackage {
+		ProgramTask = BuildPkg
+		operations++
+	}
+
+	if operations > 1 {
+		log.Fatalln("Choose only one operation. Type 'raypm -h' to see them")
+	}
+
+	if buildPackage {
+		settings, err = app.InitApp(".raypm", packageTarget)
 	} else {
-		Target = os.Getenv("GOOS")
+		var tmpStr string
+		if tmpStr, err = os.UserHomeDir(); err != nil {
+			log.Errorln(err)
+			return
+		}
+
+		if runtime.GOOS == "windows" {
+			tmpStr = path.Join(tmpStr, "AppData", "Local", "Raypm")
+		} else {
+			tmpStr = path.Join(tmpStr, ".raypm")
+		}
+
+		settings, err = app.InitApp(tmpStr, packageTarget)
 	}
 
-	RaypmPath = LocalRaypmPath
-	lockPath = path.Join(RaypmPath, "lock")
-	PathToPkgs = path.Join(RaypmPath, "pkgs")
-	dbJson = path.Join(RaypmPath, "db.json")
+	if err != nil {
+		log.Errorln(err)
+		return
+	}
 
 	switch ProgramTask {
 	case SyncPkgs:
-		enableRaypmAccess(RaypmPath, true)
-		defer enableRaypmAccess(RaypmPath, false)
+		settings.EnableAccess()
+		defer settings.DisableAccess()
 
 		log.Infoln("Synchronization")
 		var (
@@ -112,11 +112,10 @@ func main() {
 			version       string
 		)
 
-		raypmPkgs := path.Join(RaypmPath, "pkgs")
 		log.Debugln("Creating .raypm directory")
-		if _, err = os.Stat(raypmPkgs); err != nil {
-			if err = os.MkdirAll(raypmPkgs, 0754); err != nil {
-				log.Error("Failed to create '%s': %s", raypmPkgs, err)
+		if _, err = os.Stat(settings.PathToPkgs); err != nil {
+			if err = os.MkdirAll(settings.PathToPkgs, 0754); err != nil {
+				log.Error("Failed to create '%s': %s", settings.PathToPkgs, err)
 				return
 			}
 			log.Debugln("Directory created")
@@ -124,7 +123,7 @@ func main() {
 			log.Debugln("Directory already exists")
 		}
 
-		if pathToArchive, version, err = fetch.Sync(RaypmPath); err != nil {
+		if pathToArchive, version, err = fetch.Sync(settings.RaypmPath); err != nil {
 			log.Errorln("Failed to sync:", err)
 			return
 		}
@@ -135,12 +134,12 @@ func main() {
 		}
 
 		log.Infoln("Unpacking sources")
-		if err = unpack.Unpack("zip", pathToArchive, ".raypm", nil); err != nil {
+		if err = unpack.Unpack("zip", pathToArchive, settings.RaypmPath, nil); err != nil {
 			log.Errorln("Failed to unpack", err)
 			return
 		}
 
-		fInfoPath := path.Join(".raypm", "pkgs", "info.txt")
+		fInfoPath := path.Join(settings.PathToPkgs, "info.txt")
 		fInfo, err := os.Create(fInfoPath)
 		if err != nil {
 			log.Error("Failed to create info file '%s': '%s'", fInfoPath, err)
@@ -155,10 +154,10 @@ func main() {
 
 		log.Infoln("Package's database is up to date now")
 	case Clean:
-		enableRaypmAccess(RaypmPath, true)
-		defer enableRaypmAccess(RaypmPath, false)
+		settings.EnableAccess()
+		defer settings.DisableAccess()
 
-		dirToDel := ".raypm"
+		dirToDel := settings.RaypmPath
 
 		switch cleanStorage {
 		case "all":
@@ -181,8 +180,8 @@ func main() {
 		}
 
 	case InstallPkg, RemovePkg:
-		enableRaypmAccess(RaypmPath, true)
-		defer enableRaypmAccess(RaypmPath, false)
+		settings.EnableAccess()
+		defer settings.DisableAccess()
 
 		var (
 			fileLock *os.File
@@ -190,11 +189,11 @@ func main() {
 			db       *dbpkg.PkgDb
 		)
 
-		if _, err = os.Stat(lockPath); err == nil {
-			log.Error("Another process is using '%s', exiting", lockPath)
+		if _, err = os.Stat(settings.LockPath); err == nil {
+			log.Error("Another process is using '%s', exiting", settings.LockPath)
 			return
 		} else {
-			if fileLock, err = os.Create(lockPath); err != nil {
+			if fileLock, err = os.Create(settings.LockPath); err != nil {
 				log.Error("Cannot create lock file: %s\n", err)
 				return
 			}
@@ -205,13 +204,13 @@ func main() {
 			log.Debugln("Closed file")
 		}
 		defer func() {
-			if err = os.Chmod(lockPath, 0754); err != nil {
+			if err = os.Chmod(settings.LockPath, 0754); err != nil {
 				log.Error("Cannot change mod for lock file:%s\n", err)
 				return
 			}
 			log.Debugln("Changed mod to 0754. Deleting file...")
 
-			if err = os.Remove(lockPath); err != nil {
+			if err = os.Remove(settings.LockPath); err != nil {
 				log.Error("Cannot delete file:%s\n", err)
 				return
 			}
@@ -220,36 +219,36 @@ func main() {
 		}()
 
 		if ProgramTask == InstallPkg {
-			if _, err = os.Stat(dbJson); err != nil {
-				db = dbpkg.NewDb(dbJson)
+			if _, err = os.Stat(settings.DbJson); err != nil {
+				db = dbpkg.NewDb(settings.DbJson)
 			} else {
-				db, err = dbpkg.Open(dbJson)
+				db, err = dbpkg.Open(settings.DbJson)
 				if err != nil {
 					return
 				}
 			}
 			defer db.WriteData()
 
-			if deps, err = deptree.NewDepTree(RaypmPath, SelectedPackage, Target, db); err != nil {
+			if deps, err = deptree.NewDepTree(settings.RaypmPath, SelectedPackage, settings.Build.Target, db); err != nil {
 				log.Error("Failed to resolve dependencies:\n%s\n", err)
 				return
 			} else {
 				deps.Install()
 			}
 		} else if ProgramTask == RemovePkg {
-			if _, err = os.Stat(dbJson); err != nil {
+			if _, err = os.Stat(settings.DbJson); err != nil {
 				log.Errorln("The local database not found, perhaps no packages were installed")
 				return
 			}
 
-			db, err := dbpkg.Open(dbJson)
+			db, err := dbpkg.Open(settings.DbJson)
 			if err != nil {
 				log.Errorln(err)
 				return
 			}
 			defer db.WriteData()
 
-			if deps, err = deptree.NewDepTree(RaypmPath, SelectedPackage, Target, db); err != nil {
+			if deps, err = deptree.NewDepTree(settings.RaypmPath, SelectedPackage, settings.Build.Target, db); err != nil {
 				log.Error("Failed to resolve dependencies:\n%s\n", err)
 				return
 			} else {
@@ -261,9 +260,9 @@ func main() {
 			dirs []os.DirEntry
 		)
 
-		log.Debug("Going to %s\n", PathToPkgs)
-		if err = os.Chdir(PathToPkgs); err != nil {
-			log.Error("Failed to open '%s':\n%s\n", PathToPkgs, err)
+		log.Debug("Going to %s\n", settings.PathToPkgs)
+		if err = os.Chdir(settings.PathToPkgs); err != nil {
+			log.Error("Failed to open '%s':\n%s\n", settings.PathToPkgs, err)
 			return
 		}
 
@@ -273,7 +272,7 @@ func main() {
 		}()
 
 		if dirs, err = os.ReadDir("."); err != nil {
-			log.Error("Failed to read '%s':\n%s\n", PathToPkgs, err)
+			log.Error("Failed to read '%s':\n%s\n", settings.PathToPkgs, err)
 			return
 		}
 
@@ -283,7 +282,7 @@ func main() {
 			if item.IsDir() {
 				currentPackage, err := pkginfo.NewPackageItem(
 					item.Name(),
-					Target,
+					settings.Build.Target,
 				)
 
 				if err != nil {
@@ -293,7 +292,7 @@ func main() {
 
 				printLine := color.MagentaString(currentPackage.Name)
 
-				pth := path.Join(RaypmPath, "store", currentPackage.Name)
+				pth := path.Join(settings.RaypmPath, "store", currentPackage.Name)
 				pth = os.Getenv("PWD") + string(os.PathSeparator) + pth
 
 				if _, err = os.Stat(pth); err == nil {
@@ -306,7 +305,7 @@ func main() {
 	case FetchPkgInfo:
 		var currentPackage *pkginfo.Package
 
-		if err = os.Chdir(path.Join(PathToPkgs, SelectedPackage)); err != nil {
+		if err = os.Chdir(path.Join(settings.PathToPkgs, SelectedPackage)); err != nil {
 			log.Error("Package '%s' does not exists", SelectedPackage)
 			return
 		}
@@ -315,40 +314,11 @@ func main() {
 			os.Chdir(path.Join("..", "..", "..", ".."))
 		}()
 
-		if currentPackage, err = pkginfo.NewPackageItem(".", Target); err != nil {
+		if currentPackage, err = pkginfo.NewPackageItem(".", settings.Build.Target); err != nil {
 			log.Errorln(err)
 		}
 
 		fmt.Println("Package Information:")
 		currentPackage.Info()
 	}
-}
-
-func enableRaypmAccess(raypmPath string, enable bool) {
-	var bits fs.FileMode = 0555
-
-	if enable {
-		bits = 0754
-	}
-
-	log.Debugln("Chaging to", bits)
-
-	recRaypmAccess(raypmPath, bits)
-	return
-}
-
-func recRaypmAccess(item string, bits fs.FileMode) {
-	os.Chmod(item, bits)
-
-	if item == "cache" {
-		return
-	}
-
-	dirs, _ := os.ReadDir(item)
-
-	for _, entry := range dirs {
-		recRaypmAccess(path.Join(item, entry.Name()), bits)
-	}
-
-	return
 }

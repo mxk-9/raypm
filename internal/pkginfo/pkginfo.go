@@ -21,7 +21,7 @@ type UnpackTask struct {
 }
 
 type CommandTask struct {
-	Command  string `json:"command"`
+	Command  string   `json:"command"`
 	ExecBase []string `json:"exec_base"`
 	Args     []string `json:"args"`
 	From     []string `json:"from"`
