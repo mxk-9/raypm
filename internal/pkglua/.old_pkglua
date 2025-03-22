@@ -1,0 +1,412 @@
+// package pkglua
+
+import (
+	_ "embed"
+	// luart "github.com/arnodel/golua/runtime"
+)
+
+// TODO:
+// + [ ] move logic to lib.lua
+// + [X] "pack" lib.lua into liblua.go
+// + [X] prepare_phase
+// + [ ] packages (optional)
+// + [ ] srcpath and buildpath is optional
+// + [ ] verion (optional)
+
+//go:embed lib.lua
+var lualib string
+
+// var supportedSystems []string = []string{
+// 	"all", "linux", "windows",
+// }
+
+type Pkg struct {
+	Name             string
+	Version          string
+	Description      string
+	SupportedSystems []string
+	SrcPath          string
+	BuildPath        string
+	Dependencies     []string
+	Pkgman           []string
+
+	FetchPhase     []string
+	UnpackPhase    []string
+	PreparePhase   []string
+	BuildPhase     []string
+	InstallPhase   []string
+	UninstallPhase []string
+}
+
+func NewPkgData(pathToPackageFile, host, target string) (p *Pkg, err error) {
+	return
+}
+
+// func getMetadata(pathToPackageFile string) (data map[string]string, err error) {
+// 	l := lua.NewState()
+// 	lua.OpenLibraries(l)
+// 	lua.DoString(l, lualib)
+
+// 	data = make(map[string]string)
+
+// 	l.Global("Get_Metadata")
+// 	l.PushString(pathToPackageFile)
+// 	l.Call(1, 4)
+// 	tableInd := 1
+
+// 	if l.IsNil(tableInd) {
+// 		err = &LuaTableError{
+// 			Err:       FieldIsNil,
+// 			FieldName: "<none>",
+// 		}
+// 	}
+
+// 	l.Field(tableInd, "name")
+// 	data["name"], _ = l.ToString(0)
+
+// 	l.Field(tableInd, "version")
+// 	data["version"], _ = l.ToString(0)
+// 	data["description"], _ = l.ToString(0)
+// 	return
+// }
+
+// func getPhaes(luaPackage, host, target string) (data map[string]string, err error) {
+// 	l := lua.NewState()
+// 	lua.OpenLibraries(l)
+// 	lua.DoString(l, lualib)
+// 	l.Global("Get_phases")
+// 	l.PushString(luaPackage)
+// 	l.PushString(host)
+// 	l.PushString(target)
+
+// 	l.Call(3, 10)
+
+// 	return
+// }
+
+// func GetPkgData(pathToPackageFile, host, target string) (p *Pkg, err error) {
+// 	l, err := loadLuaFile(pathToPackageFile)
+// 	if err != nil {
+// 		return
+// 	}
+
+// 	var (
+// 		name      string
+// 		version   string
+// 		systems   []string
+// 		deps      []string
+// 		phases    *Phases = &Phases{}
+// 		dataTable int     = 1
+// 		pkgman    []string
+// 	)
+
+// 	l.Global("Data")
+// 	if name, err = getStringField(l, "name", dataTable); err != nil {
+// 		return
+// 	}
+
+// 	if version, err = getStringField(l, "version", dataTable); err != nil {
+// 		return
+// 	}
+
+// 	if systems, err = getStringArray(l, "supported_systems", dataTable); err != nil {
+// 		return
+// 	}
+
+// 	if !IsSystemAvailable(host) {
+// 		err = &SystemError{
+// 			Err:   UnknownSystem,
+// 			Value: host,
+// 		}
+// 		return
+// 	}
+
+// 	if !IsSystemAvailable(target) {
+// 		err = &SystemError{
+// 			Err:   UnknownSystem,
+// 			Value: target,
+// 		}
+// 		return
+// 	}
+
+// 	// if host == linux, reading /etc/os-release, search for "id" and do some case
+// 	// shit. If system not found, throw in face UnsupportedSystem. And in that case
+// 	// we also should show available distros for this package
+// 	if host == "linux" {
+// 		l.Field(dataTable, "packages")
+// 		ind := dataTable + 1
+// 		if !l.IsNil(ind) {
+// 			pkgman, err = getPkgmanCmd(l, ind)
+// 		}
+
+// 		l.SetTop(dataTable)
+
+// 	}
+
+// 	ind := dataTable
+// 	l.Field(dataTable, "targets")
+// 	ind++
+// 	l.Field(ind, target)
+// 	ind++
+
+// 	if host != target {
+// 		l.Field(ind, "cross_"+host)
+// 		ind++
+// 	}
+
+// 	tableInd := ind
+// 	deps, err = getStringArray(l, "dependencies", tableInd)
+// 	if err != nil && err.(*LuaTableError).Err != FieldIsNil {
+// 		return
+// 	}
+
+// 	phases.Fetch, err = getStringField(l, "fetch_phase", tableInd)
+// 	if err != nil && err.(*LuaTableError).Err != FieldIsNil {
+// 		return
+// 	}
+
+// 	phases.Unpack, err = getStringField(l, "unpack_phase", tableInd)
+// 	if err != nil && err.(*LuaTableError).Err != FieldIsNil {
+// 		return
+// 	}
+
+// 	phases.Prepare, err = getStringField(l, "prepare_phase", tableInd)
+// 	if err != nil && err.(*LuaTableError).Err != FieldIsNil {
+// 		return
+// 	}
+
+// 	phases.Build, err = getStringField(l, "build_phase", tableInd)
+// 	if err != nil && err.(*LuaTableError).Err != FieldIsNil {
+// 		return
+// 	}
+
+// 	phases.Install, err = getStringField(l, "install_phase", tableInd)
+// 	if err != nil && err.(*LuaTableError).Err != FieldIsNil {
+// 		return
+// 	}
+
+// 	phases.Uninstall, err = getStringField(l, "uninstall_phase", tableInd)
+// 	if err != nil && err.(*LuaTableError).Err != FieldIsNil {
+// 		return
+// 	}
+// 	err = nil
+
+// 	p = &Pkg{
+// 		Name:             name,
+// 		Version:          version,
+// 		SupportedSystems: systems,
+// 		Dependencies:     deps,
+// 		Phases:           phases,
+// 	}
+
+// 	return
+// }
+
+// func PrintPkgInfo(pathToPackageFile, host, target string) (err error) {
+// 	l, err := loadLuaFile(pathToPackageFile)
+// 	if err != nil {
+// 		return
+// 	}
+
+// 	l.Global("Data")
+// 	ind := 1
+
+// 	name, err := getStringField(l, "name", ind)
+// 	if err != nil {
+// 		return
+// 	}
+
+// 	description, err := getStringField(l, "description", ind)
+// 	if err != nil && err.(*LuaTableError).Err != FieldIsNil {
+// 		return
+// 	}
+
+// 	version, err := getStringField(l, "version", ind)
+// 	if err != nil {
+// 		return
+// 	}
+
+// 	systems, err := getStringArray(l, "supported_systems", ind)
+// 	if err != nil && err.(*LuaTableError).Err != FieldIsNil {
+// 		return
+// 	}
+
+// 	deps := []string{}
+
+// 	l.Field(ind, "targets")
+// 	ind++
+
+// 	if !IsSystemAvailable(host) {
+// 		err = &SystemError{
+// 			Err:   UnknownSystem,
+// 			Value: host,
+// 		}
+// 		return
+// 	}
+
+// 	if !IsSystemAvailable(target) {
+// 		err = &SystemError{
+// 			Err:   UnknownSystem,
+// 			Value: target,
+// 		}
+// 		return
+// 	}
+
+// 	l.Field(ind, target)
+// 	ind++
+
+// 	if host != target {
+// 		l.Field(ind, "cross_"+host)
+// 		ind++
+// 	}
+
+// 	deps, err = getStringArray(l, "dependencies", ind)
+// 	if err != nil && err.(*LuaTableError).Err != FieldIsNil {
+// 		return
+// 	}
+
+// 	fmt.Printf("Name: %s v%s\n", name, version)
+// 	fmt.Printf("Description: %s\n", description)
+
+// 	if len(deps) > 0 {
+// 		fmt.Printf("Depends on:\n")
+// 		for _, item := range deps {
+// 			fmt.Printf("\t+ %s\n", item)
+// 		}
+// 	}
+
+// 	if len(systems) > 0 {
+// 		fmt.Printf("Supports:\n")
+// 		for _, item := range systems {
+// 			fmt.Printf("\t+ %s\n", item)
+// 		}
+// 	}
+
+// 	return
+// }
+
+// func IsSystemAvailable(sysType string) bool {
+// 	if sysType == "" {
+// 		return false
+// 	}
+// 	return slices.Contains(supportedSystems, sysType)
+// }
+
+// func listAvailableSystems() string {
+// 	var sys string
+
+// 	for _, item := range supportedSystems {
+// 		sys = sys + item + "\n"
+// 	}
+
+// 	return sys
+// }
+
+// func loadLuaFile(file string) (l *lua.State, err error) {
+// 	l = lua.NewState()
+
+// 	lua.OpenLibraries(l)
+
+// 	err = lua.DoFile(l, file)
+
+// 	return
+// }
+
+// func getStringArray(l *lua.State, fieldName string, mainTableIndex int) (arr []string, err error) {
+// 	l.Field(mainTableIndex, fieldName)
+// 	ind := mainTableIndex + 1
+
+// 	log.Debug("getStringArray(%s): %v", fieldName, l.ToValue(ind))
+
+// 	if l.IsNil(ind) {
+// 		err = &LuaTableError{
+// 			Err:       FieldIsNil,
+// 			FieldName: fieldName,
+// 		}
+
+// 		l.SetTop(mainTableIndex)
+// 		return
+// 	}
+
+// 	if !l.IsTable(ind) {
+// 		err = &LuaTableError{
+// 			Err:       FieldIsNotArray,
+// 			Value:     l.ToValue(ind),
+// 			FieldName: fieldName,
+// 		}
+
+// 		l.SetTop(mainTableIndex)
+// 		return
+// 	}
+
+// 	var (
+// 		ok         bool = true
+// 		item       string
+// 		tableIndex int = ind
+// 	)
+// 	arr = make([]string, 0)
+
+// 	ind++
+// 	for i := ind; ok; i++ {
+// 		l.RawGetInt(tableIndex, i-tableIndex)
+// 		if item, ok = l.ToString(i); ok {
+// 			arr = append(arr, item)
+// 		}
+// 	}
+
+// 	l.SetTop(mainTableIndex)
+// 	return
+// }
+
+// func getStringField(l *lua.State, fieldName string, mainTableIndex int) (data string, err error) {
+// 	l.Field(mainTableIndex, fieldName)
+// 	ind := mainTableIndex + 1
+
+// 	log.Debugln("getStringField:", l.ToValue(ind))
+// 	if l.IsNil(ind) {
+// 		err = &LuaTableError{
+// 			Err:       FieldIsNil,
+// 			FieldName: fieldName,
+// 		}
+
+// 		l.SetTop(mainTableIndex)
+// 		return
+// 	}
+
+// 	data, ok := l.ToString(ind)
+// 	if !ok {
+// 		err = &LuaTableError{
+// 			Err:       ParseStringFailed,
+// 			Value:     l.ToValue(ind),
+// 			FieldName: fieldName,
+// 		}
+// 	}
+
+// 	log.Debug("getStringField(%s): %s", fieldName, data)
+
+// 	l.SetTop(mainTableIndex)
+// 	return
+// }
+
+// func getPkgmanCmd(l *lua.State, index int) (pm []string, err error) {
+// 	var (
+// 		osRelease *os.File
+// 		distro    string
+// 	)
+
+// 	if osRelease, err = os.Open("/etc/os-release"); err != nil {
+// 		log.Errorln("Failed to read /etc/os-release:", err)
+// 		return
+// 	}
+// 	defer osRelease.Close()
+
+// 	scan := bufio.NewScanner(osRelease)
+// 	for scan.Scan() {
+// 		if strings.HasPrefix(scan.Text(), "ID=") {
+// 			distro = scan.Text()[3:]
+// 			log.Info("Linux distro is '%s'", distro)
+// 			break
+// 		}
+// 	}
+// 	return
+// }
