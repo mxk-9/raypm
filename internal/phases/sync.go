@@ -1,4 +1,4 @@
-package fetch
+package phases
 
 import (
 	"bufio"
@@ -29,7 +29,7 @@ type Releases []ReleaseInfo
 func Sync(raypmPath string) (pathToArchive, version string, err error) {
 	var (
 		fInfo     *os.File
-		pkgsPath string = path.Join(raypmPath, "pkgs")
+		pkgsPath  string = path.Join(raypmPath, "pkgs")
 		fInfoPath string = path.Join(pkgsPath, "info.txt")
 	)
 	client := github.NewClient(nil)
