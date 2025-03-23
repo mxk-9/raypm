@@ -14,7 +14,7 @@ import (
 //go:embed lib.lua
 var lualib string
 
-type PkgData struct {
+type Package struct {
 	MData
 	TargetSpec
 }
@@ -30,11 +30,13 @@ type MData map[string]string
 // Contains:
 //   - supported_systems
 //   - dependencies
+//   - pkgman_install
+//   - pkgman_uninstall
 //   - packages
 //   - phases*
 type TargetSpec map[string][]string
 
-func NewPkgData(pathToPackageFile, host, target string, install bool) (pd *PkgData, err error) {
+func NewPackage(pathToPackageFile, host, target string) (pd *Package, err error) {
 	mdata := make(map[string]string)
 	tspec := make(map[string][]string)
 	ok := true
@@ -138,7 +140,7 @@ func NewPkgData(pathToPackageFile, host, target string, install bool) (pd *PkgDa
 	l.Pop(l.Top() + 1)
 	l.SetTop(0)
 
-	pd = new(PkgData)
+	pd = new(Package)
 	pd.MData = mdata
 	pd.TargetSpec = tspec
 
@@ -167,7 +169,6 @@ func NewPkgData(pathToPackageFile, host, target string, install bool) (pd *PkgDa
 		l.Global("Get_Pkgman_Cmd")
 		l.PushString(pathToPackageFile)
 		l.PushString(distro)
-		l.PushBoolean(install)
 		l.Call(3, 3)
 
 		log.Debugln(showStack(l, "pkgs"))

@@ -39,23 +39,8 @@ pkgman_base_cmd.mint = pkgman_base_cmd.ubuntu
 
 local root_permission = "sudo"
 
--- functions (private)
-local function table_contains(tbl, item)
-  for _, value in pairs(tbl) do
-    if item == value then
-      return true
-    end
-  end
-  return false
-end
-
-local function is_system_available(sys)
-  return table_contains(available_systems, sys)
-end
-
 -- functions (global)
-
-function Get_Pkgman_Cmd(luaPkg, distro, install)
+function Get_Pkgman_Cmd(luaPkg, distro)
   local cmd = {}
   dofile(luaPkg)
 
@@ -112,22 +97,14 @@ function Get_Phases(pkg_lua_file, host, target)
   dofile(pkg_lua_file)
   local phases = {}
 
-  if not is_system_available(host) then
-    return nil, "UnknownSystem", host, available_systems
-  end
-
-  if not is_system_available(target) then
-    return nil, "UnknownSystem", target
-  end
-
-  if not table_contains(Data.supported_systems, target) then
-    return nil, "TargetIsNotSupportByPackage", target, Data.supported_systems
-  end
-
   if target ~= host then
     phases = Data.targets[target]["cross_" .. host]
   else
     phases = Data.targets[target]
+  end
+
+  if phases == nil then
+    return nil, "UnknownSystem", host, target
   end
 
   return phases

@@ -11,6 +11,7 @@ type PkgData struct {
 	BasePath string
 	PkgsPath string
 	Target   string
+	Host     string
 }
 
 type Tree struct {
@@ -19,13 +20,14 @@ type Tree struct {
 	DataBase *dbpkg.PkgDb
 }
 
-func NewDepTree(raypmPath, packageName, target string, db *dbpkg.PkgDb) (depTree *Tree,
+func NewDepTree(raypmPath, packageName, host, target string, db *dbpkg.PkgDb) (depTree *Tree,
 	err error) {
 	depTree = &Tree{
 		Data: PkgData{
 			BasePath: raypmPath,
 			PkgsPath: path.Join(raypmPath, "pkgs"),
 			Target:   target,
+			Host:     host,
 		},
 		DataBase: db,
 	}

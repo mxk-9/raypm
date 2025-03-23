@@ -6,6 +6,7 @@ import (
 	"path"
 	"raypm/internal/dbpkg"
 	"raypm/internal/pkginfo"
+	"raypm/internal/pkglua"
 	"raypm/internal/vars"
 	log "raypm/pkg/slog"
 )
@@ -14,6 +15,7 @@ type Node struct {
 	Data    *PkgData
 	Db      *dbpkg.PkgDb
 	Pkg     *pkginfo.Package
+	PkgLua  *pkglua.Package
 	Depends []*Node // If len(Depends) is 0, we reach the end
 	// Predefined variables
 	Vars *vars.Vars
@@ -31,11 +33,12 @@ func NewNode(data *PkgData, db *dbpkg.PkgDb, internalName string) (depNode *Node
 
 	log.Debug("Vars:\n%v", depNode.Vars)
 
-	internal := &pkginfo.Package{}
+	internal := &pkglua.Package{}
 
 	log.Debug("Creating package item '%s'", internalName)
-	internal, err = pkginfo.NewPackageItem(
+	internal, err = pkglua.NewPackage(
 		path.Join(data.PkgsPath, internalName),
+		data.Host,
 		data.Target,
 	)
 
