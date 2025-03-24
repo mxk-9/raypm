@@ -110,7 +110,10 @@ func NewPackage(pathToPackageFile, host, target string) (pd *Package, err error)
 		l.Field(1, item)
 		phaseStr, ok = l.ToString(l.Top())
 		if ok {
-			tspec[item] = splitString(phaseStr)
+			sStr := splitString(phaseStr)
+			if len(sStr) > 0 {
+				tspec[item] = sStr
+			}
 		}
 	}
 
@@ -197,11 +200,17 @@ func splitString(phaseStr string) (splitted []string) {
 	if phaseStr == "" {
 		return
 	}
-	splitted = strings.Split(phaseStr, "\n")
-	for i, item := range splitted {
+
+	splitted = make([]string, 0)
+	before := strings.Split(phaseStr, "\n")
+
+	for _, item := range before {
 		s := strings.Trim(item, "\r")
-		s = strings.TrimSpace(s)
-		splitted[i] = s
+		s = strings.TrimSpace(item)
+
+		if len(s) > 0 {
+			splitted = append(splitted, s)
+		}
 	}
 	return
 }
